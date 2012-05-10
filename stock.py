@@ -25,7 +25,6 @@ class SimplePlayer(Player):
     
     def __init__(self, index, spy):
         Player.__init__(self, "Simple", index, spy)
-        self.spies = []
 
     def reveal(self, players, spies):
         self.players = players
@@ -34,10 +33,11 @@ class SimplePlayer(Player):
     def select(self, players, count):
         me = [p for p in players if p.index == self.index]
 
-        # As a spy, pick myself and others from not the spy.
+        # As a spy, pick myself and others who are not spies.
         if self.spy:
             others = [p for p in players if p not in self.spies]
             return me + random.sample(others, count-1)
+        # As resistance, pick myself also and others randomly.
         else:
             others = [p for p in players if p.index != self.index]
             return me + random.sample(others, count-1)
@@ -51,12 +51,19 @@ class SimplePlayer(Player):
             return random.choice([True, False])
 
     def onVoteComplete(self, players, votes, team):
-        pass
-
+        self.team = team
+    
     def onMissionComplete(self, team, sabotaged):
-        if not sabotaged:
-            self.team = team            
+        # Forget this failed team so we don't pick it!
+        if sabotaged or self.spy:
+            self.team = None
 
     def sabotage(self):
-        return self.spy
+        if not self.spy:
+            return False
+        
+        if len(self.team) == 2:
+            return random.choice([True, False])
+        else:
+            return True
 
