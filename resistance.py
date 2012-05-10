@@ -8,6 +8,15 @@ class State:
     def __repr__(self):
         return "<%s #%i>" % (self.name, self.index)
 
+    def __eq__(self, other):
+        return self.index == other.index and self.name == other.name
+
+    def __ne__(self, other):
+        return self.index != other.index or self.name != other.name
+
+    def __hash__(self):
+        return hash(self.index) ^ hash(self.name)
+
 
 class Game:
     
@@ -62,15 +71,15 @@ class Game:
 
         count = self.participants[self.turn]
         selected = l.select(self.states, count)
-        assert isinstance(selected, list)
-        assert len(set(selected)) == count
-        for s in selected: assert isinstance(s, State)
+        assert type(selected) is list, "Expecting a list as a return value of select()."
+        assert len(set(selected)) == count, "The list returned by select() is of the wrong size!"
+        for s in selected: assert isinstance(s, State), "Please return objects from the list passed to select()."
 
         votes = []
         score = 0
         for p in self.players:
             v = p.vote(selected, self.states[l.index], self.tries)
-            assert isinstance(v, bool)
+            assert type(v) is bool, "Please return a boolean from vote()."
             votes.append(v)
             if v:
                 score += 1

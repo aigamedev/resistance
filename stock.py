@@ -31,6 +31,7 @@ class SimplePlayer(Player):
         
         # This information is local and stored for one game only.
         self.local_statistics = {}
+        self.team = None
 
     def reveal(self, players, spies):
         self.players = players
@@ -43,10 +44,20 @@ class SimplePlayer(Player):
         if self.spy:
             others = [p for p in players if p not in self.spies]
             return me + random.sample(others, count-1)
-        # As resistance, pick myself also and others randomly.
+        # As resistance...
         else:
-            others = [p for p in players if p.index != self.index]
-            return me + random.sample(others, count-1)
+            team = []
+            # If there was a previously selected successfull team, pick it! 
+            if self.team:
+                team = [p for p in self.team if p.index != self.index]
+            # If the previous team did not include me, reduce it by one.
+            if len(team) > count-1:
+                team = random.sample(team, count-1)
+            # If there are not enough people still, pick another randomly.
+            if len(team) < count-1:
+                others = [p for p in players if p.index != self.index and p not in team]
+                team.extend(random.sample(others, count-1-len(team)))
+            return me + team
 
     def vote(self, team, leader, tries): 
         # As a spy, vote for all missions that include a spy!
@@ -63,13 +74,18 @@ class SimplePlayer(Player):
         return True
 
     def onVoteComplete(self, players, votes, team):
-        # Remember this team for future reference!
-        self.team = team
+        self.team = None
     
     def onMissionComplete(self, team, sabotaged):
+        if self.spy:
+            return
+
         # Forget this failed team so we don't pick it!
-        if sabotaged or self.spy:
-            self.team = None
+        if not sabotaged:
+            self.team = team
+        else:
+            if len(team) == 2 and self in team:
+                pass
 
     def sabotage(self, team):
         if not self.spy:
