@@ -3,14 +3,16 @@ import random
 from resistance import Game
 from stock import RandomPlayer, SimplePlayer
 
-from daniele import IAmNotASpyPlayer
-from myplayers import Simpletonian
-from mvbStock import Rogue
-from jekyll import JekyllPlayer
-from SoreLooser import SoreLooser
-from trusty import Trusty
+# from daniele import IAmNotASpyPlayer
+# from myplayers import Simpletonian
+# from mvbStock import Rogue
+# from jekyll import JekyllPlayer
+# from SoreLooser import SoreLooser
+# from trusty import Trusty
 
-competitors = [SimplePlayer, IAmNotASpyPlayer, Simpletonian, JekyllPlayer, SoreLooser, Trusty, Rogue] # RandomPlayer
+competitors = [SimplePlayer, RandomPlayer] 
+# IAmNotASpyPlayer, Simpletonian, JekyllPlayer, SoreLooser, Trusty, Rogue]
+
 statistics = {}
 
 
@@ -30,13 +32,13 @@ class Statistic:
         return float(self._resistance) / float(self.plays)
 
 
-GAMES = 100000
+GAMES = 10000
 
 for i in range(0,GAMES):
-    if i % 10000 == 0: print '.'
+    if i % 2500 == 0: print '.'
 
-    # players = [random.choice(competitors) for x in range(0,5)]
-    players = random.sample(competitors, 5)
+    players = [random.choice(competitors) for x in range(0,5)]
+    # players = random.sample(competitors, 5)
     g = Game(players)
     g.run()
 
