@@ -49,14 +49,21 @@ class SimplePlayer(Player):
             return me + random.sample(others, count-1)
 
     def vote(self, team, leader, tries): 
+        # As a spy, vote for all missions that include a spy!
         if self.spy:
             return len([p for p in team if p in self.spies]) > 0
-        else:
-            if tries >= 4:
-                return True
-            return random.choice([True, False])
+
+        # As resistance, always pass the fifth try.
+        if tries >= 4:
+            return True
+        # If I'm not on the team and it's a team of 3!
+        if len(team) == 3 and not self.index in [p.index for p in team]:
+            return False
+        # Otherwise, just approve the team and get more information. 
+        return True
 
     def onVoteComplete(self, players, votes, team):
+        # Remember this team for future reference!
         self.team = team
     
     def onMissionComplete(self, team, sabotaged):
