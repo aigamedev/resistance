@@ -17,38 +17,31 @@ class Player:
         @return bool     Answer Yes/No.""" 
         raise NotImplemented
 
+    def onVoteComplete(self, players, votes):
+        """Callback once the whole team has voted.
+        @param players      List of all the players in the game.
+        @param votes        Boolean votes ."""
+        pass
+
     def sabotage(self):
         """Decide what to do on the mission once it has been approved.
-        @return bool"""
+        @return bool        Yes to shoot down a mission."""
         raise NotImplemented
 
-    def onMissionComplete(self, selected, sabotaged):
+    def onMissionComplete(self, selectedPlayers, sabotaged):
+        """Callback once the players have been chosen.
+        @param selected     List of players that participated in the mission.
+        @param sabotaged    Boolean whether the misison was sabotaged or not."""
         pass        
-
-
-class RandomPlayer(Player):
-
-    def __init__(self, spy):
-        Player.__init__(self, "Random", spy)
-
-    def select(self, players, count):
-        return random.sample(players, count)
-
-    def vote(self, players): 
-        return random.choice([True, False])
-
-    def sabotage(self):
-        if self.spy:
-            return random.choice([True, False])
-        else:
-            return False
 
 
 class Game:
     
-    def __init__(self):
-        self.players = [RandomPlayer(True), RandomPlayer(True), RandomPlayer(True),
-                        RandomPlayer(False), RandomPlayer(False)]
+    def __init__(self, players):
+        roles = [True, True, False, False, False]
+        random.shuffle(roles)
+
+        self.players = [p(r) for p, r in zip(players, roles)]
         random.shuffle(self.players)
     
         self.participants = [2, 3, 2, 3, 3]
@@ -76,10 +69,16 @@ class Game:
 
         selected = l.select(self.players, self.participants[self.turn])
 
+        votes = []
         score = 0
         for p in self.players:
-            if p.vote(selected):
+            v = p.vote(selected)
+            votes.append(v)
+            if v:
                 score += 1
+
+        for p in self.players:
+            p.onVoteComplete(self.players, votes)
 
         if score <= 2:
             return False 
@@ -95,22 +94,4 @@ class Game:
             p.onMissionComplete(selected, sabotaged)
 
         return True
-
-
-resistance = 0
-spies = 0
-average = 0
-
-for i in xrange(0,10000):
-    g = Game()
-    g.run()
-    if g.wins > 2:
-        resistance += 1
-    else:
-        spies += 1
-    average += g.turn
-
-print 'SPIES wins: ', spies
-print 'RESISTANCE wins: ', resistance
-print 'TURNS average: ', float(average) / 10000.0
 
