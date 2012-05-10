@@ -40,6 +40,10 @@ class Game:
             else:
                 self.tries += 1
 
+            if self.tries >= 5:
+                self.wins = 0
+                break
+
             if self.wins >= 3:
                 break
             if self.turn - self.wins >= 3:
@@ -62,7 +66,7 @@ class Game:
                 score += 1
 
         for p in self.players:
-            p.onVoteComplete(self.states, votes)
+            p.onVoteComplete(self.states, votes, selected)
 
         if score <= 2:
             return False 

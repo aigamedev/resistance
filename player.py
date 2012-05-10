@@ -32,10 +32,11 @@ class Player:
         @return bool     Answer Yes/No.""" 
         raise NotImplemented
 
-    def onVoteComplete(self, players, votes):
+    def onVoteComplete(self, players, votes, team):
         """Callback once the whole team has voted.
         @param players      List of all the players in the game.
-        @param votes        Boolean votes ."""
+        @param votes        Boolean votes for each player (ordered).
+        @param team         The team that was chosen for this vote."""
         pass
 
     def sabotage(self):
