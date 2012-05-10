@@ -1,17 +1,17 @@
 import random
 
-from resistance import Player
+from player import Player
 
 
 class RandomPlayer(Player):
 
-    def __init__(self, spy):
-        Player.__init__(self, "Random", spy)
+    def __init__(self, index, spy):
+        Player.__init__(self, "Random", index, spy)
 
     def select(self, players, count):
         return random.sample(players, count)
 
-    def vote(self, players): 
+    def vote(self, team, leader): 
         return random.choice([True, False])
 
     def sabotage(self):
@@ -23,13 +23,19 @@ class RandomPlayer(Player):
 
 class SimplePlayer(Player):
     
-    def __init__(self, spy):
-        Player.__init__(self, "Simple", spy)
+    def __init__(self, index, spy):
+        Player.__init__(self, "Simple", index, spy)
+        print "Playing at position %i." % (index)
+
+    def reveal(self, spies):
+        print "Spies are %s." % (spies)
 
     def select(self, players, count):
+        print "Selecting %i players from %s." % (count, players)
         return random.sample(players, count)
 
-    def vote(self, players): 
+    def vote(self, team, leader): 
+        print "Voting for players %s." % (team)
         return random.choice([True, False])
 
     def sabotage(self):

@@ -20,8 +20,10 @@ class Player:
         @return list    The players selected."""
         raise NotImplemented
 
-    def vote(self, team):
+    def vote(self, team, leader):
         """Given a selected team, decide whether the mission should proceed.
+        @param team      List of players with index and .
+        @param leader    Single player that chose this team.
         @return bool     Answer Yes/No.""" 
         raise NotImplemented
 

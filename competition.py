@@ -8,8 +8,14 @@ competitors = [RandomPlayer, SimplePlayer]
 statistics = {}
 
 
-for i in xrange(0,10000):
-    players = [random.choice(competitors) for x in xrange(0,5)]
+# Only one game being run currently!
+for i in range(0,1):
+    players = [random.choice(competitors) for x in range(0,5)]
     g = Game(players)
-    g.run()   
+    g.run()
+
+    if g.wins >= 3:
+        print "\nRESISTANCE WINS!"
+    else:
+        print "\nSPIES WIN."
 
