@@ -14,7 +14,7 @@ class RandomPlayer(Player):
     def vote(self, team, leader, tries): 
         return random.choice([True, False])
 
-    def sabotage(self):
+    def sabotage(self, team):
         if self.spy:
             return random.choice([True, False])
         else:
@@ -22,13 +22,19 @@ class RandomPlayer(Player):
 
 
 class SimplePlayer(Player):
-    
+
+    # This information is global and used accross multiple games.
+    global_statistics = {}    
+
     def __init__(self, index, spy):
         Player.__init__(self, "Simple", index, spy)
+        
+        # This information is local and stored for one game only.
+        self.local_statistics = {}
 
     def reveal(self, players, spies):
         self.players = players
-        self.spies = spies
+        self.spies = [s for s in spies if s.index != self.index]
 
     def select(self, players, count):
         me = [p for p in players if p.index == self.index]
@@ -44,7 +50,7 @@ class SimplePlayer(Player):
 
     def vote(self, team, leader, tries): 
         if self.spy:
-            return len([p for p in team if p in self.spies])
+            return len([p for p in team if p in self.spies]) > 0
         else:
             if tries >= 4:
                 return True
@@ -58,12 +64,20 @@ class SimplePlayer(Player):
         if sabotaged or self.spy:
             self.team = None
 
-    def sabotage(self):
+    def sabotage(self, team):
         if not self.spy:
             return False
         
-        if len(self.team) == 2:
+        if len(team) == 2:
             return random.choice([True, False])
         else:
             return True
+
+    def onGameComplete(self, players, spies):
+        # Set the default value for global stats.
+        for p in players:
+            self.global_statistics.setdefault(p.name, 0)
+        # Update it only for the spies.
+        for p in spies:
+            self.global_statistics[p.name] += 1
 

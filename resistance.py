@@ -50,6 +50,9 @@ class Game:
                 break
             if self.turn - self.wins >= 3:
                 break
+        
+        for p in self.players:
+            p.onGameComplete(self.states, spies)
 
     def step(self):
         l = self.players[self.leader]
@@ -75,7 +78,7 @@ class Game:
 
         sabotaged = 0
         for s in selected:
-            sabotaged += int(self.players[s.index].sabotage())
+            sabotaged += int(self.players[s.index].sabotage(selected))
 
         if sabotaged == 0:
             self.wins += 1

@@ -41,7 +41,7 @@ class Player:
         @param team         The team that was chosen for this vote."""
         pass
 
-    def sabotage(self):
+    def sabotage(self, team):
         """Decide what to do on the mission once it has been approved.
         @return bool        Yes to shoot down a mission."""
         raise NotImplemented
@@ -50,6 +50,12 @@ class Player:
         """Callback once the players have been chosen.
         @param selected     List of players that participated in the mission.
         @param sabotaged    Integer how many times the mission was sabotaged."""
+        pass
+
+    def onGameComplete(self, players, spies):
+        """Callback once the game is complete, and everything is revealed.
+        @param players      List of all players in the game.
+        @param spies        List of only the spies in the game."""
         pass
 
     def __init__(self, name, index, spy):
