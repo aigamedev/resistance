@@ -88,13 +88,7 @@ class SimplePlayer(Player):
                 pass
 
     def sabotage(self, team):
-        if not self.spy:
-            return False
-        
-        if len(team) == 2:
-            return random.choice([True, False])
-        else:
-            return True
+        return self.spy
 
     def onGameComplete(self, players, spies):
         # Set the default value for global stats.
