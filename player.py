@@ -9,6 +9,10 @@ class Player:
         self.index = index
         self.spy = spy
 
+    def __repr__(self):
+        type = {True: "SPY", False: "RESISTANCE"}
+        return "<%s #%i %s>" % (self.name, self.index, type[self.spy])
+
     def reveal(self, spies):
         """If you're a spy, this function will be called to list the spies,
         including others and yourself.
@@ -20,10 +24,11 @@ class Player:
         @return list    The players selected."""
         raise NotImplemented
 
-    def vote(self, team, leader):
+    def vote(self, team, leader, tries):
         """Given a selected team, decide whether the mission should proceed.
         @param team      List of players with index and .
         @param leader    Single player that chose this team.
+        @param tries     Number of attemps for this vote.
         @return bool     Answer Yes/No.""" 
         raise NotImplemented
 

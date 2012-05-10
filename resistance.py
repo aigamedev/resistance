@@ -26,6 +26,7 @@ class Game:
 
     def run(self):
         self.turn = 0
+        self.tries = 0
 
         spies = [self.states[p.index] for p in self.players if p.spy]
         for p in self.players:
@@ -35,6 +36,9 @@ class Game:
         while self.turn < 5:
             if self.step():
                 self.turn += 1
+                self.tries = 0
+            else:
+                self.tries += 1
 
             if self.wins >= 3:
                 break
@@ -52,22 +56,22 @@ class Game:
         votes = []
         score = 0
         for p in self.players:
-            v = p.vote(selected, self.states[l.index])
+            v = p.vote(selected, self.states[l.index], self.tries)
             votes.append(v)
             if v:
                 score += 1
 
         for p in self.players:
-            p.onVoteComplete(selected, votes)
+            p.onVoteComplete(self.states, votes)
 
         if score <= 2:
             return False 
 
-        sabotaged = False
+        sabotaged = 0
         for s in selected:
-            sabotaged = sabotaged or self.players[s.index].sabotage()
+            sabotaged += int(self.players[s.index].sabotage())
 
-        if not sabotaged:
+        if sabotaged == 0:
             self.wins += 1
             
         for p in self.players:
