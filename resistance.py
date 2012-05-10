@@ -31,7 +31,9 @@ class Game:
         spies = [self.states[p.index] for p in self.players if p.spy]
         for p in self.players:
             if p.spy:   
-                p.reveal(spies)
+                p.reveal(self.states, spies)
+            else:
+                p.reveal(self.states, [])
 
         while self.turn < 5:
             if self.step():
