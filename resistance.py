@@ -60,12 +60,17 @@ class Game:
         if self.leader >= len(self.players):
             self.leader = 0 
 
-        selected = l.select(self.states, self.participants[self.turn])
+        count = self.participants[self.turn]
+        selected = l.select(self.states, count)
+        assert isinstance(selected, list)
+        assert len(set(selected)) == count
+        for s in selected: assert isinstance(s, State)
 
         votes = []
         score = 0
         for p in self.players:
             v = p.vote(selected, self.states[l.index], self.tries)
+            assert isinstance(v, bool)
             votes.append(v)
             if v:
                 score += 1

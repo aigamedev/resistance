@@ -34,7 +34,7 @@ class SimplePlayer(Player):
 
     def reveal(self, players, spies):
         self.players = players
-        self.spies = [s for s in spies if s.index != self.index]
+        self.spies = spies
 
     def select(self, players, count):
         me = [p for p in players if p.index == self.index]
