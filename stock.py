@@ -23,13 +23,13 @@ class RandomPlayer(Player):
 
 class SimplePlayer(Player):
 
-    # This information is global and used accross multiple games.
+    # EXAMPLE: This information is global and used across multiple games.
     global_statistics = {}    
 
     def __init__(self, index, spy):
         Player.__init__(self, "Simple", index, spy)
         
-        # This information is local and stored for one game only.
+        # EXAMPLE: This information is local and stored for one game only.
         self.local_statistics = {}
         self.team = None
 
@@ -49,24 +49,32 @@ class SimplePlayer(Player):
             team = []
             # If there was a previously selected successfull team, pick it! 
             if self.team:
-                team = [p for p in self.team if p.index != self.index]
+                team = [p for p in self.team if p.index != self.index and p not in self.spies]
             # If the previous team did not include me, reduce it by one.
             if len(team) > count-1:
                 team = random.sample(team, count-1)
             # If there are not enough people still, pick another randomly.
             if len(team) < count-1:
-                others = [p for p in players if p.index != self.index and p not in team]
+                others = [p for p in players if p.index != self.index and p not in (team+self.spies)]
+                if len(others) < count-1-len(team):
+                    print self.spies
+                    print count
+                    print others
+                    print team
                 team.extend(random.sample(others, count-1-len(team)))
             return me + team
 
     def vote(self, team, leader, tries): 
-        # As a spy, vote for all missions that include a spy!
+        # As a spy, vote for all missions that include one spy!
         if self.spy:
-            return len([p for p in team if p in self.spies]) > 0
+            return len([p for p in team if p in self.spies]) == 1
 
         # As resistance, always pass the fifth try.
         if tries >= 4:
             return True
+        # If there's a known spy on the team.
+        if set(team).intersection(set(self.spies)):
+            return False
         # If I'm not on the team and it's a team of 3!
         if len(team) == 3 and not self.index in [p.index for p in team]:
             return False
@@ -83,9 +91,14 @@ class SimplePlayer(Player):
         # Forget this failed team so we don't pick it!
         if not sabotaged:
             self.team = team
-        else:
-            if len(team) == 2 and self in team:
-                pass
+            return
+
+        suspects = [p for p in team if p not in self.spies and p != self]
+        spies = [p for p in team if p in self.spies]
+        # We have more thumbs down than suspects and spies!
+        if sabotaged >= len(suspects) + len(spies):
+            for spy in [s for s in suspects if s not in self.spies]:
+                self.spies.append(spy)
 
     def sabotage(self, team):
         return self.spy
