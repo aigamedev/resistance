@@ -21,18 +21,38 @@ class RandomPlayer(Player):
             return False
 
 
-class SimplePlayer(Player):
-
-    # EXAMPLE: This information is global and used across multiple games.
-    global_statistics = {}    
+class RuleFollower(Player):
 
     def __init__(self, index, spy):
-        Player.__init__(self, "Simple", index, spy)
-        
-        # EXAMPLE: This information is local and stored for one game only.
-        self.local_statistics = {}
-        self.team = None
+        Player.__init__(self, "RuleFollower", index, spy)
 
+    def reveal(self, players, spies):
+        self.spies = spies
+
+    def select(self, players, count):
+        me = [p for p in players if p.index == self.index]
+        others = [p for p in players if p.index != self.index]
+        return me + random.sample(others, count - 1)
+
+    def vote(self, team, leader, tries): 
+        # Spies select any mission with one or more spies on it.
+        if self.spy:
+            return len([p for p in team if p in self.spies]) > 0
+        # If I'm not on the team, and it's a team of 3...
+        if len(team) == 3 and not self.index in [p.index for p in team]:
+            return False
+        return True
+
+    def sabotage(self, team):
+        return self.spy
+ 
+
+class LogicReasoner(Player):
+
+    def __init__(self, index, spy):
+        Player.__init__(self, "LogicReasoner", index, spy)
+        self.team = None
+        
     def reveal(self, players, spies):
         self.players = players
         self.spies = spies
@@ -56,18 +76,13 @@ class SimplePlayer(Player):
             # If there are not enough people still, pick another randomly.
             if len(team) < count-1:
                 others = [p for p in players if p.index != self.index and p not in (team+self.spies)]
-                if len(others) < count-1-len(team):
-                    print self.spies
-                    print count
-                    print others
-                    print team
                 team.extend(random.sample(others, count-1-len(team)))
             return me + team
 
     def vote(self, team, leader, tries): 
         # As a spy, vote for all missions that include one spy!
         if self.spy:
-            return len([p for p in team if p in self.spies]) == 1
+            return len([p for p in team if p in self.spies]) > 0
 
         # As resistance, always pass the fifth try.
         if tries >= 4:
@@ -102,6 +117,9 @@ class SimplePlayer(Player):
 
     def sabotage(self, team):
         return self.spy
+
+
+class StatisticalPlayer(Player):
 
     def onGameComplete(self, players, spies):
         # Set the default value for global stats.
