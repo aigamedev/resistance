@@ -3,6 +3,23 @@ import random
 from player import Player
 
 
+class ParanoidPlayer(Player):
+
+    def __init__(self, index, spy):
+        Player.__init__(self, "Paranoid", index, spy)
+
+    def select(self, players, count):
+        me = [p for p in players if p.index == self.index]
+        others = [p for p in players if p.index != self.index]
+        return me + random.sample(others, count - 1)
+
+    def vote(self, team, leader, tries): 
+        return bool(self == leader)
+
+    def sabotage(self, team):
+        return self.spy 
+
+
 class RandomPlayer(Player):
 
     def __init__(self, index, spy):
@@ -30,8 +47,8 @@ class RuleFollower(Player):
         self.spies = spies
 
     def select(self, players, count):
-        me = [p for p in players if p.index == self.index]
-        others = [p for p in players if p.index != self.index]
+        me = [p for p in players if p == self]
+        others = [p for p in players if p != self]
         return me + random.sample(others, count - 1)
 
     def vote(self, team, leader, tries): 
@@ -50,11 +67,12 @@ class RuleFollower(Player):
         return self.spy
  
 
-class LogicReasoner(Player):
+class LogicalBot(Player):
 
     def __init__(self, index, spy):
-        Player.__init__(self, "LogicReasoner", index, spy)
+        Player.__init__(self, "LogicalBot", index, spy)
         self.team = None
+        self.taboo = []
         
     def reveal(self, players, spies):
         self.players = players
@@ -76,18 +94,33 @@ class LogicReasoner(Player):
             # If the previous team did not include me, reduce it by one.
             if len(team) > count-1:
                 team = random.sample(team, count-1)
+
             # If there are not enough people still, pick another randomly.
-            if len(team) < count-1:
-                others = [p for p in players if p.index != self.index and p not in (team+self.spies)]
-                team.extend(random.sample(others, count-1-len(team)))
-            return me + team
-        # TODO: As resistance there are subteams that must be filtered out
-        # even if we don't know who the spies are 100%.
+            if len(team) == count-1:
+                return me + team
+
+            others = [p for p in players if p.index != self.index and p not in (team+self.spies)]
+            while True:
+                selection = team + random.sample(others, count-1-len(team))
+                if self._discard(selection):
+                    continue
+                return me + selection
+            assert False, "Problem in team selection."
+
+    def _discard(self, team):
+        for t in self.taboo:
+            if set(t).issubset(set(team)):
+                return True
+        return False
 
     def vote(self, team, leader, tries): 
         # As a spy, vote for all missions that include one spy!
         if self.spy:
             return len([p for p in team if p in self.spies]) > 0
+
+        # Always approve our own missions.
+        if leader == self:
+            return True
 
         # As resistance, always pass the fifth try.
         if tries >= 4:
@@ -119,6 +152,9 @@ class LogicReasoner(Player):
         if sabotaged >= len(suspects) + len(spies):
             for spy in [s for s in suspects if s not in self.spies]:
                 self.spies.append(spy)
+        else:
+            # Remember this specific failed teams so we can taboo search.
+            self.taboo.append([p for p in team if p != self])
 
     def sabotage(self, team):
         return self.spy
@@ -133,9 +169,15 @@ class Variable(object):
         self.total += value
         self.samples += 1
 
+    def estimate(self):
+        if self.samples > 0:
+            return float(self.total) / float(self.samples)
+        else:
+            return 0.5
+
     def __repr__(self):
         if self.samples:
-            return "%0.2f%%" % (100.0 * float(self.total) / float(self.samples))
+            return "%0.2f%% (%i)" % ((100.0 * float(self.total) / float(self.samples)), self.samples)
         else:
             return "UNKNOWN"
 
@@ -143,23 +185,33 @@ class Variable(object):
 class GlobalStatistics(object):
     def __init__(self):
         self.spy_VotesForSpy = Variable()
-        self.res_VotesForSpy = Variable()
         self.spy_VotesForRes = Variable()
+        self.spy_PicksSpy = Variable()
+        self.spy_PicksSelf = Variable()
+        self.res_VotesForSpy = Variable()
         self.res_VotesForRes = Variable()
+        self.res_PicksSpy = Variable()
+        self.res_PicksSelf = Variable()
         self.spy_Sabotage = Variable()
 
     def __repr__(self):
-        return str([self.spy_VotesForSpy, self.res_VotesForSpy,
-                    self.spy_VotesForRes, self.res_VotesForRes, 
-                    self.spy_Sabotage])
+        return """
+As Spy, VOTES:  Spy %s  Res  %s
+        PICKS:  Spy %s  Self %s
+        SABOTAGE    %s
+As Res, VOTES:  Spy %s  Res  %s
+        PICKS:  Spy %s  Self %s
+""" % (self.spy_VotesForSpy, self.spy_VotesForRes, self.spy_PicksSpy, self.spy_PicksSelf, self.spy_Sabotage, self.res_VotesForSpy, self.res_VotesForRes, self.res_PicksSpy, self.res_PicksSelf)
 
 
 class LocalStatistics(object):
     def __init__(self):
-        self.probability = 0.4
+        self.probability = Variable()
+        # Chances of being one of the two spies out of the other four are 50%.
+        self.probability.sample(0.5) 
 
-    def update(self, prob):
-        self.probability = self.probability * 0.5 + prob * 0.5
+    def update(self, probability):
+        self.probability.sample(probability)
 
 
 class Statistician(Player):
@@ -169,10 +221,13 @@ class Statistician(Player):
     def __init__(self, index, spy):
         Player.__init__(self, "Statistician", index, spy)
         self.missions = []
+        self.selections = []
+        self.votes = []
         self.local_statistics = {}
 
     def reveal(self, players, spies):
         self.spies = spies
+        self.players = players
         # Set the default value for global stats.
         for p in players:
             self.global_statistics.setdefault(p.name, GlobalStatistics())
@@ -198,12 +253,20 @@ class Statistician(Player):
                 return c[0]
         assert False, "Could not perform roulete wheel selection."
 
-    def vote(self, team, leader, tries): 
-        probability = sum([self._estimate(p) for p in team])
-        return (probability / float(len(team))) < 0.5
+    def vote(self, team, leader, tries):
+        # Store this for later once we know the spies.
+        self.selections.append((leader, team))
+
+        # Hard coded if spy, could use statistics to check what to do best!
+        if self.spy:
+            return len([p for p in team if p in self.spies]) > 0
+
+        total = sum([self._estimate(p) for p in team if p != self])
+        alternate = sum([self._estimate(p) for p in self.players if p != self and p not in team])
+        return bool(total <= alternate)
 
     def _estimate(self, player):
-        return self.local_statistics[player.name].probability
+        return self.local_statistics[player.name].probability.estimate()
 
     def sabotage(self, team):
         return self.spy
@@ -215,27 +278,43 @@ class Statistician(Player):
             return
 
         # Update probabilities for this current game...
-        probability = float(sabotaged) / float(len(team))
-        for p in team:
+        others = [p for p in team if p != self]
+        probability = float(sabotaged) / float(len(others))
+        for p in others:
+            self.local_statistics[p.name].update(probability)
+
+        probability = 1.0 - float(sabotaged) / float(4 - len(others))
+        for p in [p for p in self.players if p not in team]:
             self.local_statistics[p.name].update(probability)
     
     def onVoteComplete(self, players, votes, team):
-        # We don't know enough, don't update statistics.
-        if len(self.spies) != 2:
+        # Step 2) Store.
+        self.votes.append((votes, team))
+
+        # Based on the voting, we can do many things:
+        #   - Infer the probability of spies being on the team.
+        #   - Infer the probability of spies being the voters.
+
+        # Step 1) As resistance, run a bunch of predictions.
+        spy = bool(len([p for p in team if p in self.spies]) > 0)
+        if not spy:
             return
 
-        spied = len([p for p in team if p in self.spies]) > 0
-        for p, v in zip(players, votes):
-            if spied:
-                if p in self.spies:
-                    self.store(p, 'spy_VotesForSpy', int(v))
-                else:
-                    self.store(p, 'res_VotesForSpy', int(v))
+        for player, vote in zip(players, votes):
+            spy_Vote = self.fetch(player, ['spy_VotesForSpy']) #, 'spy_VotesForRes'])
+            res_Vote = self.fetch(player, ['res_VotesForSpy']) #, 'res_VotesForRes'])
+
+            if spy_Vote + res_Vote == 0.0:
+                continue
+
+            if vote:
+                probability = spy_Vote / (spy_Vote + res_Vote)
             else:
-                if p in self.spies:
-                    self.store(p, 'spy_VotesForRes', int(v))
-                else:
-                    self.store(p, 'res_VotesForRes', int(v))
+                probability = (1.0 - spy_Vote) / (spy_Vote + res_Vote)
+            # self.local_statistics[player.name].update(probability)
+
+
+
 
     def onGameComplete(self, players, spies):
         for team, sabotaged in self.missions:
@@ -248,6 +327,35 @@ class Statistician(Player):
             for p in suspects:
                 self.store(p, 'spy_Sabotage', float(sabotaged) / float(len(suspects)))
 
+        for leader, team in self.selections:
+            suspects = [p for p in team if p in spies]
+            if leader in spies:
+                self.store(leader, 'spy_PicksSpy', int(len(suspects) > 0))
+                self.store(leader, 'spy_PicksSelf', int(leader in team))
+            else:
+                self.store(leader, 'res_PicksSpy', int(len(suspects) > 0))
+                self.store(leader, 'res_PicksSelf', int(leader in team))
+
+        for votes, team in self.votes:
+            spied = len([p for p in team if p in spies]) > 0
+            for p, v in zip(players, votes):
+                if spied:
+                    if p in self.spies:
+                        self.store(p, 'spy_VotesForSpy', int(v))
+                    else:
+                        self.store(p, 'res_VotesForSpy', int(v))
+                else:
+                    if p in self.spies:
+                        self.store(p, 'spy_VotesForRes', int(v))
+                    else:
+                        self.store(p, 'res_VotesForRes', int(v))
+
     def store(self, player, attribute, value):
         self.global_statistics[player.name].__dict__[attribute].sample(value)
+
+    def fetch(self, player, attributes):
+        result = 0.0
+        for a in attributes:
+            result += self.global_statistics[player.name].__dict__[a].estimate()
+        return result / float(len(attributes))
 
