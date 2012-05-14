@@ -1,4 +1,36 @@
-class Player:
+class Player(object):
+    """A player in the game of resistance, identified by a unique index as the position
+       at the table (random), and a name that identifies this player across multiple
+       games (constant).
+       
+       When you build a Bot for resistance, you'll be given lists of players to manipulate
+       in the form of instances of this Player class.  You can use it as follows:
+        
+            for player in players:
+                print player.name, player.index
+
+       NOTE: You can ignore the implementation of this class and simply skip to the details
+       of the Bot class below if you want to write your own AI.
+    """
+
+    def __init__(self, name, index):
+        self.name = name
+        self.index = index
+
+    def __repr__(self):
+        return "<%s #%i>" % (self.name, self.index)
+
+    def __eq__(self, other):
+        return self.index == other.index and self.name == other.name
+
+    def __ne__(self, other):
+        return self.index != other.index or self.name != other.name
+
+    def __hash__(self):
+        return hash(self.index) ^ hash(self.name)
+
+
+class Bot(Player):
     """This is the base class for your AI.  To get started:
         1) Derive this class.  See stock.py for examples.
         2) Implement callback functions below; you must re-implement the
@@ -63,8 +95,7 @@ class Player:
         @param name     The public name of your bot.
         @param index    Your own index in the player list.
         @param spy      Are you supposed to play as a spy?"""
-        self.name = name
-        self.index = index
+        Player.__init__(self, name, index)
         self.spy = spy
 
     def __repr__(self):

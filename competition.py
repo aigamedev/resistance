@@ -1,17 +1,9 @@
 import random
 
-from resistance import Game
-from stock import RandomPlayer, RuleFollower, LogicalBot, Statistician, ParanoidPlayer
+from game import Game
+from bots import RandomBot, RuleFollower, ParanoidBot
 
-from daniele import IAmNotASpyPlayer
-from myplayers import Bounder
-from mvbStock import Rogue
-from jekyll import JekyllPlayer
-from SoreLooser import SoreLooser
-from trusty import Trusty
-
-# competitors = [IAmNotASpyPlayer, Simpletonian, JekyllPlayer, SoreLooser, Trusty, Rogue, LogicReasoner, RuleFollower, Statistician, RandomPlayer]
-competitors = [LogicalBot, RuleFollower, Statistician, RandomPlayer, Bounder]
+competitors = [RandomBot, RuleFollower, ParanoidBot]
 
 statistics = {}
 
@@ -38,13 +30,12 @@ for i in range(0,GAMES):
     if i % 25000 == 0: print '.'
 
     players = [random.choice(competitors) for x in range(0,5)]
-    # players = random.sample(competitors, 2) + [SimplePlayer] * 3
     # players = random.sample(competitors, 5)
     g = Game(players)
     g.run()
 
     win = bool(g.wins >= 3)
-    for p in g.players:
+    for p in g.bots:
         s = statistics.get(p.name, Statistic())
         s.plays += 1
         statistics[p.name] = s
@@ -71,5 +62,5 @@ print "\nTOTAL"
 for s in sorted(statistics.items(), key = lambda x: -x[1].total()):
     print " ", s[0], "\t", s[1].total() * 100.0
 
-print
-print Statistician.global_statistics
+# print
+# print Statistician.global_statistics
