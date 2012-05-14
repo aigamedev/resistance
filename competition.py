@@ -4,14 +4,14 @@ from resistance import Game
 from stock import RandomPlayer, RuleFollower, LogicalBot, Statistician, ParanoidPlayer
 
 from daniele import IAmNotASpyPlayer
-from myplayers import Simpletonian
+from myplayers import Bounder
 from mvbStock import Rogue
 from jekyll import JekyllPlayer
 from SoreLooser import SoreLooser
 from trusty import Trusty
 
 # competitors = [IAmNotASpyPlayer, Simpletonian, JekyllPlayer, SoreLooser, Trusty, Rogue, LogicReasoner, RuleFollower, Statistician, RandomPlayer]
-competitors = [LogicalBot, RuleFollower, Statistician, RandomPlayer]
+competitors = [LogicalBot, RuleFollower, Statistician, RandomPlayer, Bounder]
 
 statistics = {}
 

@@ -85,28 +85,30 @@ class LogicalBot(Player):
         if self.spy:
             others = [p for p in players if p not in self.spies]
             return me + random.sample(others, count-1)
+
         # As resistance...
-        else:
-            team = []
-            # If there was a previously selected successfull team, pick it! 
-            if self.team:
-                team = [p for p in self.team if p.index != self.index and p not in self.spies]
-            # If the previous team did not include me, reduce it by one.
-            if len(team) > count-1:
-                team = random.sample(team, count-1)
+        team = []
+        # If there was a previously selected successfull team, pick it! 
+        if self.team: # and not self._discard(self.team):
+            team = [p for p in self.team if p.index != self.index and p not in self.spies]
+        # If the previous team did not include me, reduce it by one.
+        if len(team) > count-1:
+            team = self._sample([], team, count-1)
+        # If there are not enough people still, pick another randomly.
+        if len(team) == count-1:
+            return me + team
+        # Try to put together another team that combines past winners and not spies.
+        others = [p for p in players if p.index != self.index and p not in (team+self.spies)]
+        return self._sample(me + team, others, count-1-len(team))
 
-            # If there are not enough people still, pick another randomly.
-            if len(team) == count-1:
-                return me + team
-
-            others = [p for p in players if p.index != self.index and p not in (team+self.spies)]
-            while True:
-                selection = team + random.sample(others, count-1-len(team))
-                if self._discard(selection):
-                    continue
-                return me + selection
-            assert False, "Problem in team selection."
-
+    def _sample(self, selected, candidates, count):
+        while True:
+            selection = selected + random.sample(candidates, count)
+            if self._discard(selection):
+                continue
+            return selection
+        assert False, "Problem in team selection."
+        
     def _discard(self, team):
         for t in self.taboo:
             if set(t).issubset(set(team)):
@@ -127,6 +129,9 @@ class LogicalBot(Player):
             return True
         # If there's a known spy on the team.
         if set(team).intersection(set(self.spies)):
+            return False
+        # Taboo list of past suspicious teams.
+        if self._discard(team):
             return False
         # If I'm not on the team and it's a team of 3!
         if len(team) == 3 and not self.index in [p.index for p in team]:
@@ -296,24 +301,62 @@ class Statistician(Player):
         #   - Infer the probability of spies being the voters.
 
         # Step 1) As resistance, run a bunch of predictions.
-        spy = bool(len([p for p in team if p in self.spies]) > 0)
-        if not spy:
-            return
+        # According to Bayes' Theorem:
+        #   P(A|B) = P(B|A)  * P(A) / P(B)
+        spied = bool(len([p for p in team if p in self.spies]) > 0)
+        if spied:
+            for player, vote in zip(players, votes):
+                p = self.local_statistics[player.name].probability.estimate()
+
+                # In this case with:
+                #   - A is the probability of 'player' being a spy. 
+                #   - B is the probability of 'player' voting for suspects.
+                if vote:
+                    spy_Vote = self.fetch(player, ['spy_VotesForSpy'])
+                    probability = spy_Vote * p # / 1.0 
+                else:
+                    res_Vote = self.fetch(player, ['res_VotesForSpy'])
+                    probability = 1.0 - res_Vote * p # / 1.0 
+
+                self.local_statistics[player.name].update(probability)
+        elif False:
+            # TODO: If we had more information we could determine if a team excluded spies
+            # for sure!  In this case, we could run more accurate predictions...
+            for player, vote in zip(players, votes):
+                spy_Vote = self.fetch(player, ['spy_VotesForSpy', 'spy_VotesForRes'])
+                res_Vote = self.fetch(player, ['res_VotesForSpy', 'res_VotesForRes'])
+                p = self.local_statistics[player.name].probability.estimate()
+
+                # In this case with:
+                #   - A is the probability of 'player' being a spy. 
+                #   - B is the probability of 'player' voting true.
+                if vote:
+                    probability = spy_Vote * p # / 1.0 
+                else:
+                    probability = 1.0 - res_Vote * p # / 1.0 
+
+                self.local_statistics[player.name].update(probability)
 
         for player, vote in zip(players, votes):
-            spy_Vote = self.fetch(player, ['spy_VotesForSpy']) #, 'spy_VotesForRes'])
-            res_Vote = self.fetch(player, ['res_VotesForSpy']) #, 'res_VotesForRes'])
+            p = self.local_statistics[player.name].probability.estimate()
+            spy_Vote = self.fetch(player, ['spy_VotesForSpy']) * (0.0 + p) \
+                     + self.fetch(player, ['res_VotesForSpy']) * (1.0 - p)
+            res_Vote = self.fetch(player, ['spy_VotesForRes']) * (0.0 + p) \
+                     + self.fetch(player, ['res_VotesForRes']) * (1.0 - p)
 
-            if spy_Vote + res_Vote == 0.0:
-                continue
+            for member in team:
+                # In this case, Bayes' Theorem with:
+                #   - A is the probability of team 'member' being a spy.
+                #   - B is the probability of 'player' voting true.
+                t = self.local_statistics[member.name].probability.estimate()
+                
+                if vote:
+                    probability = spy_Vote * t # / 1.0
+                else:
+                    probability = 1.0 - res_Vote * t # / 1.0
 
-            if vote:
-                probability = spy_Vote / (spy_Vote + res_Vote)
-            else:
-                probability = (1.0 - spy_Vote) / (spy_Vote + res_Vote)
-            # self.local_statistics[player.name].update(probability)
-
-
+                # NOTE: Reduces overall estimate quality...
+                # self.local_statistics[member.name].update(probability)
 
 
     def onGameComplete(self, players, spies):
