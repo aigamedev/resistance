@@ -79,8 +79,9 @@ class Game:
         count = self.participants[self.turn]
         selected = l.select(self.players[:], count)
         assert type(selected) is list, "Expecting a list as a return value of select()."
-        assert len(set(selected)) == count, "The list returned by select() is of the wrong size!"
+        assert len(set(selected)) == count, "The list returned by %s.select() is of the wrong size!" % (l.name)
         for s in selected: assert isinstance(s, Player), "Please return Player objects in the list from select()."
+        selected = [Player(s.name, s.index) for s in selected]
 
         # Step 2) Notify other bots of the selection and ask for a vote.
         votes = []

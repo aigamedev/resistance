@@ -1,3 +1,7 @@
+import logging
+import logging.handlers
+
+
 class Player(object):
     """A player in the game of resistance, identified by a unique index as the position
        at the table (random), and a name that identifies this player across multiple
@@ -98,8 +102,14 @@ class Bot(Player):
         Player.__init__(self, name, index)
         self.spy = spy
 
+        self.log = logging.getLogger(name)
+        if not self.log.handlers:
+            output = logging.FileHandler(filename=name+'.log')
+            self.log.addHandler(output)
+            self.log.setLevel(logging.DEBUG)
+
     def __repr__(self):
         """Built-in function to support pretty-printing."""
-        type = {True: "SPY", False: "RESISTANCE"}
+        type = {True: "SPY", False: "RST"}
         return "<%s #%i %s>" % (self.name, self.index, type[self.spy])
 

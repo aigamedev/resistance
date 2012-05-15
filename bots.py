@@ -47,17 +47,16 @@ class RuleFollower(Bot):
         self.spies = spies
 
     def select(self, players, count):
-        me = [p for p in players if p == self]
         others = [p for p in players if p != self]
-        return me + random.sample(others, count - 1)
+        return [self] + random.sample(others, count - 1)
 
     def vote(self, team, leader, tries): 
+        # Both types of factions have constant behavior on the last try.
+        if tries >= 4:
+            return not self.spy
         # Spies select any mission with one or more spies on it.
         if self.spy:
             return len([p for p in team if p in self.spies]) > 0
-        # As resistance, always pass the fifth try.
-        if tries >= 4:
-            return True
         # If I'm not on the team, and it's a team of 3...
         if len(team) == 3 and not self.index in [p.index for p in team]:
             return False
