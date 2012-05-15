@@ -50,7 +50,7 @@ class Bot(Player):
         See the SimplePlayer in stock.py for more examples. 
     """
 
-    def reveal(self, players, spies):
+    def onGameRevealed(self, players, spies):
         """If you're a spy, this function will be called to list the spies,
         including others and yourself.
         @param players  List of all players in the game.

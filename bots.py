@@ -43,7 +43,7 @@ class RuleFollower(Bot):
     def __init__(self, index, spy):
         Bot.__init__(self, "RuleFollower", index, spy)
 
-    def reveal(self, players, spies):
+    def onGameRevealed(self, players, spies):
         self.spies = spies
 
     def select(self, players, count):

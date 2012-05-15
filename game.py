@@ -37,9 +37,9 @@ class Game:
         spies = [self.players[p.index] for p in self.bots if p.spy]
         for p in self.bots:
             if p.spy:   
-                p.reveal(self.players[:], spies[:])
+                p.onGameRevealed(self.players[:], spies[:])
             else:
-                p.reveal(self.players[:], [])
+                p.onGameRevealed(self.players[:], [])
 
         # Repeat as long as the game hasn't hit the max number of missions.
         while self.turn < self.NUM_TURNS:
