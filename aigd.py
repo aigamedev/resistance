@@ -10,7 +10,7 @@ class LogicalBot(Bot):
         self.team = None
         self.taboo = []
         
-    def reveal(self, players, spies):
+    def onGameRevealed(self, players, spies):
         self.players = players
         self.spies = spies
 
@@ -168,7 +168,7 @@ class Statistician(LogicalBot):
         self.votes = []
         self.local_statistics = {}
 
-    def reveal(self, players, spies):
+    def onGameRevealed(self, players, spies):
         self.spies = spies
         self.players = players
         # Set the default value for global stats.

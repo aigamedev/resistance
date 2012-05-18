@@ -1,9 +1,11 @@
+# -*- coding: utf8 -*-
 import random
 
 from game import Game
-from bots import RandomBot, RuleFollower, ParanoidBot
+from bots import RandomBot, RuleFollower, ParanoidBot, HippieBot, Deceiver
+from aigd import LogicalBot, Statistician 
 
-competitors = [RandomBot, RuleFollower, ParanoidBot]
+competitors = [RuleFollower, LogicalBot, Statistician, Deceiver, ParanoidBot, HippieBot, RandomBot]
 
 statistics = {}
 
@@ -24,10 +26,11 @@ class Statistic:
         return float(self._resistance) / float(self.plays)
 
 
-GAMES = 100000
+GAMES = 50000
 
-for i in range(0,GAMES):
-    if i % 25000 == 0: print '.'
+for i in range(1,GAMES):
+    if i % 10000 == 0: print 'o'
+    elif i % 2500 == 0: print '.',
 
     players = [random.choice(competitors) for x in range(0,5)]
     # players = random.sample(competitors, 5)
@@ -62,5 +65,3 @@ print "\nTOTAL"
 for s in sorted(statistics.items(), key = lambda x: -x[1].total()):
     print " ", s[0], "\t", s[1].total() * 100.0
 
-# print
-# print Statistician.global_statistics

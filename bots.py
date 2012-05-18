@@ -20,6 +20,22 @@ class ParanoidBot(Bot):
         return self.spy 
 
 
+class HippieBot(Bot):
+
+    def __init__(self, index, spy):
+        Bot.__init__(self, "Hippie", index, spy)
+
+    def select(self, players, count):
+        others = [p for p in players if p != self]
+        return [self] + random.sample(others, count - 1)
+
+    def vote(self, team, leader, tries): 
+        return True
+
+    def sabotage(self, team):
+        return self.spy
+
+
 class RandomBot(Bot):
 
     def __init__(self, index, spy):
@@ -36,6 +52,37 @@ class RandomBot(Bot):
             return random.choice([True, False])
         else:
             return False
+
+
+class Deceiver(Bot):
+
+    def __init__(self, index, spy):
+        Bot.__init__(self, "Deceiver", index, spy)
+
+    def onGameRevealed(self, players, spies):
+        self.spies = spies
+
+    def select(self, players, count):
+        others = [p for p in players if p != self]
+        return [self] + random.sample(others, count - 1)
+
+    def vote(self, team, leader, tries): 
+        # Since a resistance would vote up the last mission...
+        if tries >= 4:
+            return True
+        # Spies select any mission with only one spy on it.
+        if self.spy and len(team) == 2:
+            return len([p for p in team if p in self.spies]) == 1
+        # If I'm not on the team, and it's a team of 3...
+        if len(team) == 3 and not self in team: 
+            return False
+        return True
+
+    def sabotage(self, team):
+        # Shoot down only missions with more than another person.
+        if self.spy:
+            return len(team) > 2
+        return False
 
 
 class RuleFollower(Bot):

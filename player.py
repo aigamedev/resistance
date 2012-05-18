@@ -104,7 +104,7 @@ class Bot(Player):
 
         self.log = logging.getLogger(name)
         if not self.log.handlers:
-            output = logging.FileHandler(filename=name+'.log')
+            output = logging.FileHandler(filename='logs/'+name+'.log')
             self.log.addHandler(output)
             self.log.setLevel(logging.DEBUG)
 
