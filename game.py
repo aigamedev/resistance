@@ -14,7 +14,7 @@ class State:
     
     def losses(self):
         """How many games the resistance lost, or the spies won."""
-        return self.turn - self.wins
+        return self.turn - self.wins - 1
 
 
 class Game:
@@ -46,7 +46,7 @@ class Game:
     
         # Configuration for the game itself.
         self.participants = [2, 3, 2, 3, 3]
-        self.leader = 0
+        self.leader = itertools.cycle(self.bots) 
 
     def run(self):
         """Main entry point for the resistance game.  Once initialized call this to 
@@ -71,7 +71,7 @@ class Game:
                 self.state.tries += 1
 
             # If there wasn't an agreement then the spies win.
-            if self.state.tries >= 5:
+            if self.state.tries > 5:
                 self.state.turn = self.NUM_TURNS+1
                 break
 
@@ -90,17 +90,19 @@ class Game:
         does not have a clear majority."""
 
         # Step 1) Pick the leader and ask for a selection of players on the team.
-        l = self.bots[self.leader]
-        self.leader += 1
-        if self.leader >= len(self.bots):
-            self.leader = 0
+        l = self.leader.next()
 
-        count = self.participants[self.state.turn]
+        count = self.participants[self.state.turn-1]
         selected = l.select(self.players[:], count)
-        assert type(selected) is list, "Expecting a list as a return value of select()."
+
+        # Check the data returned by the bots is in the expected format!
+        assert type(selected) is list or type(selected) is set, "Expecting a list as a return value of select()."
         assert len(set(selected)) == count, "The list returned by %s.select() is of the wrong size!" % (l.name)
         for s in selected: assert isinstance(s, Player), "Please return Player objects in the list from select()."
+
+        # Make an internal callback, e.g. to track statistics about selection.
         self.onPlayerSelected(l, [b for b in self.bots if b in selected])
+        # Copy the list to make sure no internal data is leaked to the other bots!
         selected = [Player(s.name, s.index) for s in selected]        
 
         # Step 2) Notify other bots of the selection and ask for a vote.
@@ -110,10 +112,10 @@ class Game:
             v = p.vote(selected[:], self.players[l.index])
             self.onPlayerVoted(p, v, l, [b for b in self.bots if b in selected])
             assert type(v) is bool, "Please return a boolean from vote()."
+
             votes.append(v)
-            if v:
-                score += 1
-        
+            score += int(v)
+    
         # Step 3) Notify players of the vote result.
         for p in self.bots:
             p.onVoteComplete(self.players[:], votes, selected[:])

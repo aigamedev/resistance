@@ -78,3 +78,4 @@ for s in sorted(statistics.items(), key = lambda x: -x[1].resWins.estimate()):
 print "\nTOTAL" 
 for s in sorted(statistics.items(), key = lambda x: -x[1].total().estimate()):
     print " ", s[0], "\t", s[1].total()
+
