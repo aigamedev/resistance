@@ -3,33 +3,26 @@ import random
 from player import Bot 
 
 
-class ParanoidBot(Bot):
-
-    def __init__(self, index, spy):
-        Bot.__init__(self, "Paranoid", index, spy)
+class Paranoid(Bot):
 
     def select(self, players, count):
-        me = [p for p in players if p.index == self.index]
-        others = [p for p in players if p.index != self.index]
-        return me + random.sample(others, count - 1)
+        others = [p for p in players if p != self]
+        return [self] + random.sample(others, count - 1)
 
-    def vote(self, team, leader, tries): 
+    def vote(self, team, leader): 
         return bool(self == leader)
 
     def sabotage(self, team):
         return self.spy 
 
 
-class HippieBot(Bot):
-
-    def __init__(self, index, spy):
-        Bot.__init__(self, "Hippie", index, spy)
+class Hippie(Bot):
 
     def select(self, players, count):
         others = [p for p in players if p != self]
         return [self] + random.sample(others, count - 1)
 
-    def vote(self, team, leader, tries): 
+    def vote(self, team, leader): 
         return True
 
     def sabotage(self, team):
@@ -38,13 +31,10 @@ class HippieBot(Bot):
 
 class RandomBot(Bot):
 
-    def __init__(self, index, spy):
-        Bot.__init__(self, "Random", index, spy)
-
     def select(self, players, count):
         return random.sample(players, count)
 
-    def vote(self, team, leader, tries): 
+    def vote(self, team, leader): 
         return random.choice([True, False])
 
     def sabotage(self, team):
@@ -56,9 +46,6 @@ class RandomBot(Bot):
 
 class Deceiver(Bot):
 
-    def __init__(self, index, spy):
-        Bot.__init__(self, "Deceiver", index, spy)
-
     def onGameRevealed(self, players, spies):
         self.spies = spies
 
@@ -66,9 +53,9 @@ class Deceiver(Bot):
         others = [p for p in players if p != self]
         return [self] + random.sample(others, count - 1)
 
-    def vote(self, team, leader, tries): 
+    def vote(self, team, leader): 
         # Since a resistance would vote up the last mission...
-        if tries >= 4:
+        if self.game.tries == 5:
             return True
         # Spies select any mission with only one spy on it.
         if self.spy and len(team) == 2:
@@ -87,9 +74,6 @@ class Deceiver(Bot):
 
 class RuleFollower(Bot):
 
-    def __init__(self, index, spy):
-        Bot.__init__(self, "RuleFollower", index, spy)
-
     def onGameRevealed(self, players, spies):
         self.spies = spies
 
@@ -97,9 +81,9 @@ class RuleFollower(Bot):
         others = [p for p in players if p != self]
         return [self] + random.sample(others, count - 1)
 
-    def vote(self, team, leader, tries): 
+    def vote(self, team, leader): 
         # Both types of factions have constant behavior on the last try.
-        if tries >= 4:
+        if self.game.tries == 5:
             return not self.spy
         # Spies select any mission with one or more spies on it.
         if self.spy:

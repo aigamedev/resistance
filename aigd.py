@@ -5,14 +5,11 @@ from player import Bot
 
 class LogicalBot(Bot):
 
-    def __init__(self, index, spy):
-        Bot.__init__(self, "LogicalBot", index, spy)
-        self.team = None
-        self.taboo = []
-        
     def onGameRevealed(self, players, spies):
         self.players = players
         self.spies = spies
+        self.team = None
+        self.taboo = []
 
     def select(self, players, count):
         me = [p for p in players if p.index == self.index]
@@ -51,7 +48,7 @@ class LogicalBot(Bot):
                 return True
         return False
 
-    def vote(self, team, leader, tries): 
+    def vote(self, team, leader): 
         # As a spy, vote for all missions that include one spy!
         if self.spy:
             return len([p for p in team if p in self.spies]) > 0
@@ -61,7 +58,7 @@ class LogicalBot(Bot):
             return True
 
         # As resistance, always pass the fifth try.
-        if tries >= 4:
+        if self.game.tries == 5:
             return True
         # If there's a known spy on the team.
         if set(team).intersection(set(self.spies)):
@@ -155,22 +152,19 @@ class LocalStatistics(object):
         self.probability.sample(probability)
 
 
-class Statistician(LogicalBot):
+class Statistician(Bot):
 
     global_statistics = {}
 
-    def __init__(self, index, spy):
-        LogicalBot.__init__(self, index, spy)
-        self.name = "Statistician"
+    def onGameRevealed(self, players, spies):
+        self.spies = spies
+        self.players = players
 
         self.missions = []
         self.selections = []
         self.votes = []
         self.local_statistics = {}
 
-    def onGameRevealed(self, players, spies):
-        self.spies = spies
-        self.players = players
         # Set the default value for global stats.
         for p in players:
             self.global_statistics.setdefault(p.name, GlobalStatistics())
@@ -196,7 +190,7 @@ class Statistician(LogicalBot):
                 return c[0]
         assert False, "Could not perform roulete wheel selection."
 
-    def vote(self, team, leader, tries):
+    def vote(self, team, leader):
         # Store this for later once we know the spies.
         self.selections.append((leader, team))
 
@@ -215,8 +209,6 @@ class Statistician(LogicalBot):
         return self.spy
 
     def onMissionComplete(self, team, sabotaged):
-        LogicalBot.onMissionComplete(self, team, sabotaged)
-
         # Store this information for later once we know the spies.
         self.missions.append((team, sabotaged))
         if self.spy:
@@ -300,7 +292,7 @@ class Statistician(LogicalBot):
                 # self.local_statistics[member.name].update(probability)
 
 
-    def onGameComplete(self, players, spies):
+    def onGameComplete(self, win, players, spies):
         for team, sabotaged in self.missions:
             suspects = [p for p in team if p in spies]
             # No spies on this mission to update statistics.

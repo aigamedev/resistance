@@ -1,5 +1,20 @@
 import random
+import itertools
 from player import Player
+
+
+class State:
+    """Simple game state data-structure that's passed to bots to help reduce
+    the amount of book-keeping required."""
+
+    def __init__(self):
+        self.turn = 1 
+        self.tries = 1
+        self.wins = 0
+    
+    def losses(self):
+        """How many games the resistance lost, or the spies won."""
+        return self.turn - self.wins
 
 
 class Game:
@@ -17,27 +32,25 @@ class Game:
         pass
    
     def __init__(self, bots):
+        self.state = State()        
+
         # Randomly assign the roles based on the player index.
         roles = [True, True, False, False, False]
         random.shuffle(roles)
 
         # Create Bot instances based on the constructor passed in.
-        self.bots = [p(i, r) for p, r, i in zip(bots, roles, range(0, len(bots)))]
+        self.bots = [p(self.state, i, r) for p, r, i in zip(bots, roles, range(0, len(bots)))]
         
         # Maintaina copy of players that includes minimal data, for passing to other bots.
         self.players = [Player(p.name, p.index) for p in self.bots]
     
         # Configuration for the game itself.
         self.participants = [2, 3, 2, 3, 3]
-        self.wins = 0
         self.leader = 0
 
     def run(self):
         """Main entry point for the resistance game.  Once initialized call this to 
         simulate the game until it is complete."""
-
-        self.turn = 0
-        self.tries = 0
 
         # Tell the bots who the spies are if they are allowed to know.
         spies = [self.players[p.index] for p in self.bots if p.spy]
@@ -48,29 +61,29 @@ class Game:
                 p.onGameRevealed(self.players[:], [])
 
         # Repeat as long as the game hasn't hit the max number of missions.
-        while self.turn < self.NUM_TURNS:
+        while self.state.turn <= self.NUM_TURNS:
             
             # Some missions will take multiple turns... 
             if self.step():
-                self.turn += 1
-                self.tries = 0
+                self.state.turn += 1
+                self.state.tries = 1
             else:
-                self.tries += 1
+                self.state.tries += 1
 
             # If there wasn't an agreement then the spies win.
-            if self.tries >= 5:
-                self.wins = 0
+            if self.state.tries >= 5:
+                self.state.turn = self.NUM_TURNS+1
                 break
 
             # Determine if either side has won already.
-            if self.wins >= self.NUM_WINS:
+            if self.state.wins >= self.NUM_WINS:
                 break
-            if self.turn - self.wins >= self.NUM_LOSSES:
+            if self.state.losses() >= self.NUM_LOSSES:
                 break
         
         # Pass back the results to the bots so they can do some learning!
         for p in self.bots:
-            p.onGameComplete(self.players[:], spies)
+            p.onGameComplete(self.state.wins >= self.NUM_WINS, self.players[:], spies)
 
     def step(self):
         """Single step/turn of the resistance game, which can fail if the voting
@@ -80,9 +93,9 @@ class Game:
         l = self.bots[self.leader]
         self.leader += 1
         if self.leader >= len(self.bots):
-            self.leader = 0 
+            self.leader = 0
 
-        count = self.participants[self.turn]
+        count = self.participants[self.state.turn]
         selected = l.select(self.players[:], count)
         assert type(selected) is list, "Expecting a list as a return value of select()."
         assert len(set(selected)) == count, "The list returned by %s.select() is of the wrong size!" % (l.name)
@@ -94,7 +107,7 @@ class Game:
         votes = []
         score = 0
         for p in self.bots:
-            v = p.vote(selected[:], self.players[l.index], self.tries)
+            v = p.vote(selected[:], self.players[l.index])
             self.onPlayerVoted(p, v, l, [b for b in self.bots if b in selected])
             assert type(v) is bool, "Please return a boolean from vote()."
             votes.append(v)
@@ -119,7 +132,7 @@ class Game:
             sabotaged += int(result)
 
         if sabotaged == 0:
-            self.wins += 1
+            self.state.wins += 1
             
         # Step 5) Pass back the results of the mission to the bots.
         for p in self.bots:

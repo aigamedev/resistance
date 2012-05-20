@@ -62,11 +62,10 @@ class Bot(Player):
         @return list    The players selected."""
         raise NotImplemented
 
-    def vote(self, team, leader, tries):
+    def vote(self, team, leader):
         """Given a selected team, decide whether the mission should proceed.
         @param team      List of players with index and .
         @param leader    Single player that chose this team.
-        @param tries     Number of attemps for this vote.
         @return bool     Answer Yes/No.""" 
         raise NotImplemented
 
@@ -88,23 +87,26 @@ class Bot(Player):
         @param sabotaged    Integer how many times the mission was sabotaged."""
         pass
 
-    def onGameComplete(self, players, spies):
+    def onGameComplete(self, win, players, spies):
         """Callback once the game is complete, and everything is revealed.
+        @param win          Boolean if the resistance won.
         @param players      List of all players in the game.
         @param spies        List of only the spies in the game."""
         pass
 
-    def __init__(self, name, index, spy):
-        """Constructor called before a game starts.
+    def __init__(self, game, index, spy):
+        """Constructor called before a game starts.  It's recommended you don't
+        override this function and instead use onGameRevealed() to perform setup.
         @param name     The public name of your bot.
         @param index    Your own index in the player list.
         @param spy      Are you supposed to play as a spy?"""
-        Player.__init__(self, name, index)
+        Player.__init__(self, self.__class__.__name__, index)
+        self.game = game
         self.spy = spy
 
-        self.log = logging.getLogger(name)
+        self.log = logging.getLogger(self.name)
         if not self.log.handlers:
-            output = logging.FileHandler(filename='logs/'+name+'.log')
+            output = logging.FileHandler(filename='logs/'+self.name+'.log')
             self.log.addHandler(output)
             self.log.setLevel(logging.DEBUG)
 

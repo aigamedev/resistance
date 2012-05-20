@@ -3,10 +3,10 @@ import random
 
 from game import Game
 from util import Variable
-from bots import RandomBot, RuleFollower, ParanoidBot, HippieBot, Deceiver
+from bots import RandomBot, RuleFollower, Paranoid, Hippie, Deceiver
 from aigd import LogicalBot, Statistician 
 
-competitors = [RuleFollower, LogicalBot, Statistician, Deceiver, ParanoidBot, HippieBot, RandomBot]
+competitors = [RuleFollower, LogicalBot, Statistician, Deceiver, Paranoid, Hippie, RandomBot]
 
 statistics = {}
 
@@ -47,7 +47,7 @@ class CompetitionRound(Game):
 
 GAMES = 10000
 
-for i in range(1,GAMES):
+for i in range(1,GAMES+1):
     if i % 2500 == 0: print 'o'
     elif i % 500 == 0: print '.',
 
@@ -59,7 +59,7 @@ for i in range(1,GAMES):
 
     g.run()
 
-    win = bool(g.wins >= 3)
+    win = bool(g.state.wins >= 3)
     for p in g.bots:
         s = statistics.get(p.name, Statistic())
 
