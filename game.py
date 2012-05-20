@@ -9,6 +9,12 @@ class Game:
     NUM_TURNS = 5
     NUM_WINS = 3
     NUM_LOSSES = 3
+
+    def onPlayerVoted(self, player, vote, leader, team):
+        pass
+   
+    def onPlayerSelected(self, player, team):
+        pass
    
     def __init__(self, bots):
         # Randomly assign the roles based on the player index.
@@ -36,7 +42,7 @@ class Game:
         # Tell the bots who the spies are if they are allowed to know.
         spies = [self.players[p.index] for p in self.bots if p.spy]
         for p in self.bots:
-            if p.spy:   
+            if p.spy:
                 p.onGameRevealed(self.players[:], spies[:])
             else:
                 p.onGameRevealed(self.players[:], [])
@@ -81,13 +87,15 @@ class Game:
         assert type(selected) is list, "Expecting a list as a return value of select()."
         assert len(set(selected)) == count, "The list returned by %s.select() is of the wrong size!" % (l.name)
         for s in selected: assert isinstance(s, Player), "Please return Player objects in the list from select()."
-        selected = [Player(s.name, s.index) for s in selected]
+        self.onPlayerSelected(l, [b for b in self.bots if b in selected])
+        selected = [Player(s.name, s.index) for s in selected]        
 
         # Step 2) Notify other bots of the selection and ask for a vote.
         votes = []
         score = 0
         for p in self.bots:
             v = p.vote(selected[:], self.players[l.index], self.tries)
+            self.onPlayerVoted(p, v, l, [b for b in self.bots if b in selected])
             assert type(v) is bool, "Please return a boolean from vote()."
             votes.append(v)
             if v:
