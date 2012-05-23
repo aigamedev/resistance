@@ -22,7 +22,7 @@ class Player(object):
         self.index = index
 
     def __repr__(self):
-        return "<%s #%i>" % (self.name, self.index)
+        return "%i-%s" % (self.index, self.name)
 
     def __eq__(self, other):
         return self.index == other.index and self.name == other.name

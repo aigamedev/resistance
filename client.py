@@ -2,6 +2,7 @@ from twisted.words.protocols import irc
 from twisted.internet import reactor, protocol
 from twisted.python import log
 
+from player import Player
 from game import State
 
 
@@ -12,15 +13,40 @@ class ResistanceClient(object):
         self.games = {}
         self.players = {}
 
+    def process_JOIN(self, msg):
+        game = msg.rstrip('.').split(' ')[1]
+        self.games[game] = State()
+        self.protocol.join(game)
+
+    def process_REVEAL(self, msg):
+        info = msg.split(';')
+        game = info[0].split(' ')[1]
+        players = []
+        for p in info[1].split(' ')[2:]:
+            ident = p.rstrip(',').split('-')
+            players.append(Player(ident[1], int(ident[0])))
+        self.players[game] = players
+
+    def process_SELECT(self, msg):
+        count = int(msg.rstrip('.').split(' ')[1])
+        self.count = count
+        self.protocol.send('SELECTED 1-Random, 2-Hippie, 3-Deceiver.')
+
+    def process_VOTE(self, msg):
+        self.protocol.send('VOTED Yes.')
+
+    def process_MISSION(self, msg):
+        mission = msg.split(';')[0]
+        game = mission.split(' ')[1]
+        self.games[game] = State()
+        details = mission.split(' ')[2].split('.')
+        self.games[game].turn = int(details[0])
+        self.games[game].tries = int(details[1])
+
     def message(self, msg):
-        if msg.startswith('JOIN'):
-            game = msg.split(' ')[1]
-            self.games[game] = State()
-            self.protocol.join(game)
-        elif msg.startswith('REVEAL'):
-            info = msg.split(';')
-            game = info[0].split(' ')[1]
-            self.players[game] = range(5)
+        cmd = msg.split(' ')[0]
+        process = getattr(self, 'process_'+cmd)
+        process(msg)
 
 
 class ResistanceProtocol(irc.IRCClient):
