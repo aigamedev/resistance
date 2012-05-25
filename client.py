@@ -14,17 +14,17 @@ class ResistanceClient(object):
         self.games = {}
         self.players = {}
 
+    def reply(self, message):
+        self.protocol.msg(self.recipient, message)
+
     def process_JOIN(self, msg):
         game = msg.rstrip('.').split(' ')[1]
         self.protocol.join(game)
-        self.createGame(game)
-
-    def createGame(self, game):
-        self.games[game] = {'state': State(), 'bots': []}
+        self.reply('JOINED %s.' % (game))
 
     def process_REVEAL(self, mission, identifier, players, role):
         game = mission.split(' ')[1]
-        self.createGame(game)
+        self.makeGame(game)
 
         # ID 2-Random;
         index, name = identifier.split(' ')[1].split('-')
@@ -46,14 +46,17 @@ class ResistanceClient(object):
         game, count = select.split(' ')[1:]
         bot = self.games[game]['bots'][0]
         selection = sorted(bot.select(self.players[game], int(count)), key = lambda p: p.index)
-        self.protocol.send('SELECTED %s.' % ', '.join([str(Player(s.name, s.index)) for s in selection]))
+        self.reply('SELECTED %s.' % ', '.join([str(Player(s.name, s.index)) for s in selection]))
 
-    def process_VOTE(self, game, team):
-        game = select.split(' ')[1:]
+    def process_VOTE(self, vote, team):
+        # VOTE #game-0002;
+        game = vote.split(' ')[1]
         bot = self.games[game]['bots'][0]
-        selection = [self.makePlayer(t) for t in team.split(' ')]
-        result = bot.vote(self.games[game]['state'].leader, selection)
-        self.protocol.send('VOTED Yes.')
+
+        # TEAM 1-Random, 2-Hippie, 3-Paranoid.
+        result = bot.vote(self.games[game]['state'].leader, self.makeTeam(team))
+        reply = {True: "Yes", False: "No"}
+        self.reply('VOTED %s.' % (reply[result]))
 
     def process_MISSION(self, mission, leader):
         # MISSION #game-0002 1.2;
@@ -66,22 +69,41 @@ class ResistanceClient(object):
         # LEADER 1-Random.
         index, name = leader.split(' ')[1].split('-')
         state.leader = Player(name, int(index))
+        self.reply('OK.')
+
+    def process_SABOTAGE(self, mission, team):
+        # SABOTAGE #game-0002;
+        game = mission.split(' ')[1]
+        bot = self.games[game]['bots'][0]
+
+        # TEAM 1-Random, 2-Hippie, 3-Paranoid.
+        result = bot.sabotage(self.makeTeam(team))
+        reply = {True: "Yes", False: "No"}
+        self.reply('SABOTAGED %s.' % (reply[result]))
+
+    def makeTeam(self, team):
+        return [self.makePlayer(t) for t in team.split(' ')[1:]]
 
     def makePlayer(self, identifier):
         index, name = identifier.split('-')
         return Player(name, int(index))
 
-    def message(self, msg):
+    def makeGame(self, game):
+        self.games[game] = {'state': State(), 'bots': []}
+
+    def message(self, sender, msg):
         cmd = msg.split(' ')[0]
         process = getattr(self, 'process_'+cmd)
         args = [i.strip(' ') for i in msg.rstrip('.').split(';')]
+        self.recipient = sender
         process(*args)
+        self.recipient = None
 
 
 class ResistanceProtocol(irc.IRCClient):
            
     def __init__(self):
-        self.client = ResistanceClient(self, self.factory.constructor)
+        self.client = None
 
     def getNickname(self):
         return self.factory.nickname
@@ -90,6 +112,7 @@ class ResistanceProtocol(irc.IRCClient):
 
     def signedOn(self):
         print 'Signed on!'
+        self.client = ResistanceClient(self, self.factory.constructor)
         self.join('#resistance')
 
     def joined(self, channel):
@@ -97,9 +120,7 @@ class ResistanceProtocol(irc.IRCClient):
 
     def privmsg(self, user, channel, msg):
         u = user.split('!')[0]
-
-    def action(self, user, channel, msg):
-        print 'ACTION', user.split('!')[0], channel, msg
+        self.client.message(user, msg)
     
 
 class ResistanceFactory(protocol.ClientFactory):
@@ -108,7 +129,7 @@ class ResistanceFactory(protocol.ClientFactory):
 
     def __init__(self, bot):
         self.constructor = bot
-        self.nickname = bot.__class__.__name__
+        self.nickname = bot.__name__
 
     def clientConnectionLost(self, connector, reason):        
         print 'Connection lost.', reason
@@ -122,7 +143,6 @@ class ResistanceFactory(protocol.ClientFactory):
 if __name__ == '__main__':
 
     from bots import RandomBot
-    import sys
     f = ResistanceFactory(RandomBot)
     reactor.connectTCP("irc.aigamedev.com", 6667, f)
     reactor.run()
