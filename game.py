@@ -11,6 +11,7 @@ class State:
         self.turn = 1 
         self.tries = 1
         self.wins = 0
+        self.leader = None
     
     def losses(self):
         """How many games the resistance lost, or the spies won."""
