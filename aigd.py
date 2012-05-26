@@ -48,13 +48,13 @@ class LogicalBot(Bot):
                 return True
         return False
 
-    def vote(self, team, leader): 
+    def vote(self, team): 
         # As a spy, vote for all missions that include one spy!
         if self.spy:
             return len([p for p in team if p in self.spies]) > 0
 
         # Always approve our own missions.
-        if leader == self:
+        if self.game.leader == self:
             return True
 
         # As resistance, always pass the fifth try.
@@ -72,7 +72,7 @@ class LogicalBot(Bot):
         # Otherwise, just approve the team and get more information. 
         return True
 
-    def onVoteComplete(self, players, votes, team):
+    def onVoteComplete(self, team, votes):
         self.team = None
     
     def onMissionComplete(self, team, sabotaged):
@@ -190,9 +190,9 @@ class Statistician(Bot):
                 return c[0]
         assert False, "Could not perform roulete wheel selection."
 
-    def vote(self, team, leader):
+    def vote(self, team):
         # Store this for later once we know the spies.
-        self.selections.append((leader, team))
+        self.selections.append((self.game.leader, team))
 
         # Hard coded if spy, could use statistics to check what to do best!
         if self.spy:
@@ -224,7 +224,7 @@ class Statistician(Bot):
         for p in [p for p in self.players if p not in team]:
             self.local_statistics[p.name].update(probability)
     
-    def onVoteComplete(self, players, votes, team):
+    def onVoteComplete(self, team, votes):
         # Step 2) Store.
         self.votes.append((votes, team))
 
@@ -238,7 +238,7 @@ class Statistician(Bot):
         spied = bool(len([p for p in team if p in self.spies]) > 0)
                 # or self._discard(team)
         if spied:
-            for player, vote in zip(players, votes):
+            for player, vote in zip(self.game.players, votes):
                 p = self.local_statistics[player.name].probability.estimate()
 
                 # In this case with:
@@ -255,7 +255,7 @@ class Statistician(Bot):
         elif False:
             # TODO: If we had more information we could determine if a team excluded spies
             # for sure!  In this case, we could run more accurate predictions...
-            for player, vote in zip(players, votes):
+            for player, vote in zip(self.game.players, votes):
                 spy_Vote = self.fetch(player, ['spy_VotesForSpy', 'spy_VotesForRes'])
                 res_Vote = self.fetch(player, ['res_VotesForSpy', 'res_VotesForRes'])
                 p = self.local_statistics[player.name].probability.estimate()
@@ -270,7 +270,7 @@ class Statistician(Bot):
 
                 self.local_statistics[player.name].update(probability)
 
-        for player, vote in zip(players, votes):
+        for player, vote in zip(self.game.players, votes):
             p = self.local_statistics[player.name].probability.estimate()
             spy_Vote = self.fetch(player, ['spy_VotesForSpy']) * (0.0 + p) \
                      + self.fetch(player, ['res_VotesForSpy']) * (1.0 - p)
@@ -292,7 +292,7 @@ class Statistician(Bot):
                 # self.local_statistics[member.name].update(probability)
 
 
-    def onGameComplete(self, win, players, spies):
+    def onGameComplete(self, win, spies):
         for team, sabotaged in self.missions:
             suspects = [p for p in team if p in spies]
             # No spies on this mission to update statistics.
@@ -314,7 +314,7 @@ class Statistician(Bot):
 
         for votes, team in self.votes:
             spied = len([p for p in team if p in spies]) > 0
-            for p, v in zip(players, votes):
+            for p, v in zip(self.game.players, votes):
                 if spied:
                     if p in self.spies:
                         self.store(p, 'spy_VotesForSpy', int(v))
