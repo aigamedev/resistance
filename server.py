@@ -10,6 +10,10 @@ from player import Player, Bot
 from game import Game
 
 
+def YesOrNo(b):
+    result = {True: 'Yes', False: 'No'}
+    return result[b]
+
 class ProxyBot(Bot):
 
     def __init__(self, name, client):
@@ -67,6 +71,9 @@ class ProxyBot(Bot):
     def process_VOTED(self, msg):
         self._vote.set(msg[4] == 'Yes.')
 
+    def onVoteComplete(self, team, votes):
+        self.client.msg(self.name, "VOTED %s; TEAM %s; VOTES %s." % (self.uuid, self.bakeTeam(team), ', '.join([YesOrNo(v) for v in votes])))
+
     def sabotage(self, team):
         self.client.msg(self.name, 'SABOTAGE %s; TEAM %s.' % (self.uuid, self.bakeTeam(team)))
         self._sabotage = AsyncResult()
@@ -75,8 +82,11 @@ class ProxyBot(Bot):
     def process_SABOTAGED(self, msg):
         self._sabotage.set(msg[4] == 'Yes.')
 
-    def onGameComplete(self, *args):
-        pass
+    def onMissionComplete(self, team, sabotaged):
+        self.client.msg(self.name, "RESULT %s; TEAM %s; SABOTAGES %i." % (self.uuid, self.bakeTeam(team), sabotaged))
+
+    def onGameComplete(self, win, spies):
+        self.client.msg(self.name, "COMPLETE %s; WIN %s; SPIES %s." % (self.uuid, YesOrNo(win), self.bakeTeam(spies)))
 
 
 class ResistanceServerHandler(object):
@@ -90,7 +100,7 @@ class ResistanceServerHandler(object):
     def start(self, client):
         client.send_message(message.Join('#resistance'))
 
-        for i in range(0, 25):
+        for i in range(0, 100):
             self.game = Game([ProxyBot(bot, client) for bot in ['RandomBot', 'Deceiver', 'Paranoid', 'Hippie', 'RuleFollower']])
             self.game.run()
             if self.game.won:

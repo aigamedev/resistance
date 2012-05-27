@@ -49,11 +49,25 @@ class ResistanceClient(object):
         self.games[game]['state'].players = participants
 
         # SPIES 1-Deceiver.
+        saboteurs = []
         if spies:
-            saboteurs = []
             for s in spies.split(' ')[1:]:
                 saboteurs.append(self.makePlayer(s.rstrip(',')))
             self.games[game]['state'].spies = saboteurs
+
+        bot.onGameRevealed(participants, saboteurs)
+
+    def process_MISSION(self, mission, leader):
+        # MISSION #game-0002 1.2;
+        index, game, details = mission.split(' ')[1:]
+        state = self.games[game]['state']
+        state.turn, state.tries = [int(i) for i in details.split('.')]
+
+        # LEADER 1-Random.
+        state.leader = self.makePlayer(leader.split(' ')[1])
+
+        bot = self.getBot(game, index)
+        bot.onMissionAttempt(state.turn, state.tries, state.leader)
 
     def process_SELECT(self, select):
         index, game, count = select.split(' ')[1:]
@@ -72,16 +86,13 @@ class ResistanceClient(object):
         reply = {True: "Yes", False: "No"}
         self.reply('VOTED %s %s.' % (self.uuid(bot, game), reply[result]))
 
-    def process_MISSION(self, mission, leader):
-        # MISSION #game-0002 1.2;
-        index, game, details = mission.split(' ')[1:]
-        turn, tries = details.split('.')
-        state = self.games[game]['state']
-        state.turn = int(turn)
-        state.tries = int(tries)
+    def process_VOTED(self, voted, team, votes):
+        index, game = voted.split(' ')[1:]
+        bot = self.getBot(game, index)
 
-        # LEADER 1-Random.
-        state.leader = self.makePlayer(leader.split(' ')[1])
+        t = self.makeTeam(team)
+        v = [bool(b.strip(',.') == 'Yes') for b in votes.split(' ')]
+        bot.onVoteComplete(t, v)
 
     def process_SABOTAGE(self, mission, team):
         # SABOTAGE #game-0002;
@@ -93,8 +104,26 @@ class ResistanceClient(object):
         reply = {True: "Yes", False: "No"}
         self.reply('SABOTAGED %s %s.' % (self.uuid(bot, game), reply[result]))
 
+    def process_RESULT(self, result, team, sabotages):
+        index, game = result.split(' ')[1:]
+        bot = self.getBot(game, index)
+
+        t = self.makeTeam(team)
+        sabotaged = int(sabotages.split(' ')[1])
+        
+        bot.onMissionComplete(t, sabotaged)
+
+    def process_COMPLETE(self, complete, win, spies):
+        index, game = complete.split(' ')[1:]
+        bot = self.getBot(game, index)
+
+        w = bool(win.split(' ')[1] == 'Yes')
+        s = self.makeTeam(spies)
+
+        bot.onGameComplete(w, s)
+
     def makeTeam(self, team):
-        return [self.makePlayer(t) for t in team.split(' ')[1:]]
+        return [self.makePlayer(t.strip('., ')) for t in team.split(' ')[1:]]
 
     def makePlayer(self, identifier):
         index, name = identifier.split('-')
