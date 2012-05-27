@@ -49,7 +49,6 @@ class ProxyBot(Bot):
         return self._select.get()
 
     def process_SELECTED(self, msg):
-        print 'select()'
         team = [self.makePlayer(p.strip(',.')) for p in msg[4:]]
         self._select.set(team)
 
@@ -59,7 +58,6 @@ class ProxyBot(Bot):
         return self._vote.get()
 
     def process_VOTED(self, msg):
-        print 'vote()'
         self._vote.set(msg[4] == 'Yes.')
 
     def sabotage(self, team):
@@ -68,11 +66,10 @@ class ProxyBot(Bot):
         return self._sabotage.get()
 
     def process_SABOTAGED(self, msg):
-        print 'sabotage()'
         self._sabotage.set(msg[4] == 'Yes.')
 
     def onGameComplete(self, *args):
-        print 'DONE.'
+        pass
 
 
 class ResistanceServerHandler(object):
@@ -89,25 +86,26 @@ class ResistanceServerHandler(object):
         self.game = Game([lambda g, i, s: ProxyBot(g, 'RandomBot', i, s, client)] * 5)
         self.game.run()
 
+        client.stop()
+        print 'DONE.'
 
     def __call__(self, client, msg):
         if msg.command == '001':
             self.start(client)
         elif msg.command == 'PING':
-            print 'PONG'
-            client.cmd(message.Pong())
+            client.send_message(message.Pong())
         else:
             for bot in self.game.bots:
                 if bot != bot.makePlayer(msg.params[2]):
                     continue
                 name = 'process_'+msg.params[1]
                 if hasattr(bot, name):
-                    print ' '.join(msg.params)
                     process = getattr(bot, name)
+                    print ' '.join(msg.params[1:])
                     process(msg.params)
             
 if __name__ == '__main__':
-    irc = Client('irc.aigamedev.com', 'aigamedev',  port=6667)
+    irc = Client('localhost', 'aigamedev',  port=6667)
     irc.add_handler(ResistanceServerHandler())
     irc.start()
     irc.join()

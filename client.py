@@ -25,6 +25,7 @@ class ResistanceClient(object):
         self.protocol.msg(self.recipient, message)
 
     def process_JOIN(self, msg):
+        print 'JOIN'
         game = msg.rstrip('.').split(' ')[1]
         self.protocol.join(game)
         self.reply('JOINED %s.' % (game))
@@ -109,7 +110,7 @@ class ResistanceClient(object):
         print msg
         process = getattr(self, 'process_'+cmd)
         args = [i.strip(' ') for i in msg.rstrip('.').split(';')]
-        self.recipient = sender
+        self.recipient = sender.split('!')[0]
         process(*args)
         self.recipient = None
 
@@ -125,6 +126,7 @@ class ResistanceProtocol(irc.IRCClient):
     nickname = property(getNickname)
 
     def signedOn(self):
+        print 'CONNECTED'
         self.client = ResistanceClient(self, self.factory.constructor)
         self.join('#resistance')
 
@@ -159,6 +161,6 @@ if __name__ == '__main__':
 
     # TODO: Support connecting multiple clients using this single script.
     # Parse sys.argv and setup as many factories as necessary.
-    reactor.connectTCP("irc.aigamedev.com", 6667, ResistanceFactory(RandomBot))
+    reactor.connectTCP("localhost", 6667, ResistanceFactory(RandomBot))
     reactor.run()
 
