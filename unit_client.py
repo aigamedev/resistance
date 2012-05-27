@@ -30,10 +30,10 @@ class TestResistanceClient(unittest.TestCase):
 
     def test_RevealGame(self):
         client = TestClient()
-        client.message('test', 'REVEAL #game-0001; ID 2-Hippie; PLAYERS 1-Random, 2-Hippie, 3-Paranoid; ROLE Spy.')
+        client.message('test', 'REVEAL #game-0001; ID 2-Hippie; ROLE Spy; PLAYERS 1-Random, 2-Hippie, 3-Paranoid.')
         self.assertTrue('#game-0001' in client.games)
 
-        players = client.players['#game-0001']
+        players = client.games['#game-0001']['state'].players
         self.assertEquals(3, len(players))
         self.assertEquals('[1-Random, 2-Hippie, 3-Paranoid]', str(players))
         for p in players:
@@ -46,7 +46,7 @@ class TestResistanceClient(unittest.TestCase):
     
     def test_StartMission(self):
         client = TestClient()
-        client.message('test', 'REVEAL #game-0001; ID 2-Hippie; PLAYERS 1-Random, 2-Hippie, 3-Paranoid; ROLE Resistance.')
+        client.message('test', 'REVEAL #game-0001; ID 2-Hippie; ROLE Resistance; PLAYERS 1-Random, 2-Hippie, 3-Paranoid.')
         client.message('test', 'MISSION #game-0001 1.2; LEADER 1-Random.')
         self.assertEquals(1, client.games['#game-0001']['state'].turn)
         self.assertEquals(2, client.games['#game-0001']['state'].tries)
@@ -57,19 +57,19 @@ class TestResistanceClient(unittest.TestCase):
 
     def test_SelectTeam(self):
         client = TestClient()
-        client.message('test', 'REVEAL #game-0001; ID 2-Hippie; PLAYERS 1-Random, 2-Hippie, 3-Paranoid; ROLE Spy.')
+        client.message('test', 'REVEAL #game-0001; ID 2-Hippie; ROLE Spy; PLAYERS 1-Random, 2-Hippie, 3-Paranoid.')
         client.message('test', 'SELECT #game-0001 3.')
         self.assertCalled(client.protocol.msg, 'test', 'SELECTED 1-Random, 2-Hippie, 3-Paranoid.')
 
     def test_VoteSelection(self):
         client = TestClient()
-        client.message('test', 'REVEAL #game-0001; ID 2-Hippie; PLAYERS 1-Random, 2-Hippie, 3-Paranoid; ROLE Spy.')
+        client.message('test', 'REVEAL #game-0001; ID 2-Hippie; ROLE Spy; PLAYERS 1-Random, 2-Hippie, 3-Paranoid.')
         client.message('test', 'VOTE #game-0001; TEAM 1-Random, 2-Hippie, 3-Paranoid.')
         self.assertCalled(client.protocol.msg, 'test', 'VOTED Yes.')
         
     def test_Sabotage(self):
         client = TestClient()
-        client.message('test', 'REVEAL #game-0001; ID 2-Hippie; PLAYERS 1-Random, 2-Hippie, 3-Paranoid; ROLE Spy.')
+        client.message('test', 'REVEAL #game-0001; ID 2-Hippie; ROLE Spy; PLAYERS 1-Random, 2-Hippie, 3-Paranoid.')
         client.message('test', 'SABOTAGE #game-0001; TEAM 1-Random, 2-Hippie.')
         self.assertCalled(client.protocol.msg, 'test', 'SABOTAGED Yes.')
 
