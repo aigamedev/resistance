@@ -78,14 +78,22 @@ class Game:
                 break
 
             # Determine if either side has won already.
-            if self.state.wins >= self.NUM_WINS:
+            if self.won:
                 break
-            if self.state.losses() >= self.NUM_LOSSES:
+            if self.lost:
                 break
         
         # Pass back the results to the bots so they can do some learning!
         for p in self.bots:
             p.onGameComplete(self.state.wins >= self.NUM_WINS, spies)
+
+    @property
+    def won(self):
+        return self.state.wins >= self.NUM_WINS
+
+    @property
+    def lost(self):
+        return self.state.losses() >= self.NUM_LOSSES
 
     def step(self):
         """Single step/turn of the resistance game, which can fail if the voting

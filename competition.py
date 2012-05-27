@@ -1,5 +1,6 @@
 # -*- coding: utf8 -*-
 import random
+import sys
 
 from game import Game
 from util import Variable
@@ -48,8 +49,8 @@ class CompetitionRound(Game):
 GAMES = 10000
 
 for i in range(1,GAMES+1):
-    if i % 2500 == 0: print 'o'
-    elif i % 500 == 0: print '.',
+    if i % 2500 == 0: print >>sys.stderr, 'o'
+    elif i % 500 == 0: print >>sys.stderr, '.',
 
     players = [random.choice(competitors) for x in range(0,5)]
     # players = random.sample(competitors, 5)

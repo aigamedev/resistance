@@ -25,7 +25,6 @@ class ResistanceClient(object):
         self.protocol.msg(self.recipient, message)
 
     def process_JOIN(self, msg):
-        print 'JOIN'
         game = msg.rstrip('.').split(' ')[1]
         self.protocol.join(game)
         self.reply('JOINED %s.' % (game))
@@ -107,7 +106,7 @@ class ResistanceClient(object):
 
     def message(self, sender, msg):
         cmd = msg.split(' ')[0]
-        print msg
+        # print msg
         process = getattr(self, 'process_'+cmd)
         args = [i.strip(' ') for i in msg.rstrip('.').split(';')]
         self.recipient = sender.split('!')[0]
@@ -120,13 +119,12 @@ class ResistanceProtocol(irc.IRCClient):
     def __init__(self):
         self.client = None
 
-    def getNickname(self):
+    @property
+    def nickname(self):
         return self.factory.nickname
 
-    nickname = property(getNickname)
-
     def signedOn(self):
-        print 'CONNECTED'
+        print "CONNECTED %s" % (self.nickname)
         self.client = ResistanceClient(self, self.factory.constructor)
         self.join('#resistance')
 
@@ -157,10 +155,12 @@ class ResistanceFactory(protocol.ClientFactory):
 
 if __name__ == '__main__':
 
-    from bots import RandomBot
+    from bots import RandomBot, Deceiver, Hippie, Paranoid, RuleFollower
 
-    # TODO: Support connecting multiple clients using this single script.
-    # Parse sys.argv and setup as many factories as necessary.
     reactor.connectTCP("localhost", 6667, ResistanceFactory(RandomBot))
+    reactor.connectTCP("localhost", 6667, ResistanceFactory(Deceiver))
+    reactor.connectTCP("localhost", 6667, ResistanceFactory(Hippie))
+    reactor.connectTCP("localhost", 6667, ResistanceFactory(Paranoid))
+    reactor.connectTCP("localhost", 6667, ResistanceFactory(RuleFollower))
     reactor.run()
 

@@ -1,5 +1,7 @@
+import sys
+
 import gevent
-from gevent.event import Event, AsyncResult
+from gevent.event import AsyncResult
 from geventirc import Client
 from geventirc import message
 from geventirc import handlers
@@ -10,17 +12,22 @@ from game import Game
 
 class ProxyBot(Bot):
 
-    def __init__(self, game, name, index, spy, client):
-        Player.__init__(self, name, index)
-        self.game = game
-        self.spy = spy
-
+    def __init__(self, name, client):
+        self.name = name
         self.client = client
 
         self._vote = None
         self._select = None
         self._sabotage = None
         self.game = '#game-0001'
+
+    def __call__(self, game, index, spy):
+        """This function pretends to be a Builder, but in fact just
+        configures this object in place as it's easier."""
+        Player.__init__(self, self.name, index)
+        self.state = game
+        self.spy = spy
+        return self
 
     def bakeTeam(self, team):
         return ', '.join([str(p) for p in team])
@@ -83,11 +90,16 @@ class ResistanceServerHandler(object):
     def start(self, client):
         client.send_message(message.Join('#resistance'))
 
-        self.game = Game([lambda g, i, s: ProxyBot(g, 'RandomBot', i, s, client)] * 5)
-        self.game.run()
+        for i in range(0, 25):
+            self.game = Game([ProxyBot(bot, client) for bot in ['RandomBot', 'Deceiver', 'Paranoid', 'Hippie', 'RuleFollower']])
+            self.game.run()
+            if self.game.won:
+                print >>sys.stderr, 'R',
+            else:
+                print >>sys.stderr, 'S',
 
+        print "\nDONE."
         client.stop()
-        print 'DONE.'
 
     def __call__(self, client, msg):
         if msg.command == '001':
@@ -101,7 +113,7 @@ class ResistanceServerHandler(object):
                 name = 'process_'+msg.params[1]
                 if hasattr(bot, name):
                     process = getattr(bot, name)
-                    print ' '.join(msg.params[1:])
+                    # print ' '.join(msg.params[1:])
                     process(msg.params)
             
 if __name__ == '__main__':
