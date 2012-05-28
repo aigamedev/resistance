@@ -49,14 +49,11 @@ class ProxyBot(Bot):
 
         self._join = Event() 
         self.client.msg(self.name, "JOIN %s." % (self.channel))
+        self.client.msg('#resistance', "STARTING %s." % (self.game))
         return self
 
     def bakeTeam(self, team):
         return ', '.join([str(p) for p in team])
-
-    @property
-    def uuid(self):
-        return "%s %s" % (Player.__repr__(self), self.game)
 
     def send(self, msg):
         self.client.msg(self.channel, msg)
@@ -71,41 +68,43 @@ class ProxyBot(Bot):
         self.send('REVEAL %s; ID %s; ROLE %s; PLAYERS %s%s.' % (self.game, Player.__repr__(self), roles[self.spy], self.bakeTeam(players), s))
 
     def onMissionAttempt(self, mission, tries, leader):
-        self.send('MISSION %s %i.%i; LEADER %s.' % (self.uuid, mission, tries, Player.__repr__(leader)))
+        self.send('MISSION %i.%i; LEADER %s.' % (mission, tries, Player.__repr__(leader)))
 
     def select(self, players, count):
-        self.send('SELECT %s %i.' % (self.uuid, count))
+        self.send('SELECT %i!' % (count))
         self._select = AsyncResult()
         return self._select.get()
 
     def process_SELECTED(self, msg):
-        team = [makePlayer(p.strip(' ,.')) for p in msg[4:]]
+        team = [makePlayer(p.strip(' ,.')) for p in msg[2:]]
         self._select.set(team)
 
     def vote(self, team):
-        self.send("VOTE %s; TEAM %s." % (self.uuid, self.bakeTeam(team)))
+        self.send("VOTE %s?" % (self.bakeTeam(team)))
         self._vote = AsyncResult()
         return self._vote.get()
 
     def process_VOTED(self, msg):
-        self._vote.set(msg[4] == 'Yes.')
+        self._vote.set(msg[2] == 'Yes.')
 
     def onVoteComplete(self, team, votes):
-        self.send("VOTED %s; TEAM %s; VOTES %s." % (self.uuid, self.bakeTeam(team), ', '.join([YesOrNo(v) for v in votes])))
+        self.send("VOTES %s." % (', '.join([YesOrNo(v) for v in votes])))
 
     def sabotage(self, team):
-        self.send("SABOTAGE %s; TEAM %s." % (self.uuid, self.bakeTeam(team)))
+        self.send("SABOTAGE?")
         self._sabotage = AsyncResult()
         return self._sabotage.get()
 
-    def process_SABOTAGED(self, msg):
-        self._sabotage.set(msg[4] == 'Yes.')
+    def process_SABOTAGED(self, sabotaged):
+        self._sabotage.set(sabotaged[2] == 'Yes.')
 
     def onMissionComplete(self, team, sabotaged):
-        self.send("RESULT %s; TEAM %s; SABOTAGES %i." % (self.uuid, self.bakeTeam(team), sabotaged))
+        self.send("SABOTAGES %i." % (sabotaged))
 
     def onGameComplete(self, win, spies):
-        self.send("COMPLETE %s; WIN %s; SPIES %s." % (self.uuid, YesOrNo(win), self.bakeTeam(spies)))
+        self.send("RESULT %s; SPIES %s." % (YesOrNo(win), self.bakeTeam(spies)))
+
+        self.client.msg('#resistance', "FINISHED %s." % (self.game))
 
         self.client.send_message(message.Command(self.game, 'PART'))
         self.client.send_message(message.Command(self.channel, 'PART'))
@@ -164,12 +163,15 @@ class ResistanceCompetitionHandler(CompetitionRunner):
                 self.competitors.append(user)
         elif msg.command == 'PART':
             user = msg.prefix.split('!')[0].strip('+@')
-            if user != client.nick:
+            if user == client.nick:
+                return
+            channel = msg.params[0].lstrip(':')
+            if channel == '#resistance':
                 self.competitors.remove(user)
         elif msg.command == 'PRIVMSG':
-            target = makePlayer(msg.params[2]) 
+            channel = msg.params[0].lstrip(':')
             for bot in self.game.bots:
-                if bot != target:
+                if bot.channel != channel:
                     continue
                 name = 'process_'+msg.params[1]
                 if hasattr(bot, name):

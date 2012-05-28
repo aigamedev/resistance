@@ -11,20 +11,18 @@ class ResistanceClient(object):
         self.protocol = protocol
         self.constructor = constructor
         self.bots = {}
+        self.channel = None
 
-    def uuid(self, bot, game):
-        return "%s %s" % (Player.__repr__(bot), game)
-
-    def getBot(self, game, index):
-        return self.bots[game+'.'+index]
+    def getBot(self, game = None, index = None):
+        return self.bots[self.channel]
 
     def reply(self, message):
-        self.protocol.msg(self.recipient, message)
+        self.protocol.msg(self.channel, message)
 
     def process_JOIN(self, msg):
         game = msg.rstrip('.').split(' ')[1]
-        self.protocol.join(game)
-        self.recipient = game
+        self.channel = game
+        self.protocol.join(self.channel)
 
     def process_REVEAL(self, mission, identifier, role, players, spies = None):
         game = mission.split(' ')[1]
@@ -32,7 +30,7 @@ class ResistanceClient(object):
         # ID 2-Random;
         index, name = identifier.split(' ')[1].split('-')
         bot = self.constructor(State(), int(index), False)
-        self.bots["%s.%s-%s" % (game, index, name)] = bot
+        self.bots[self.channel] = bot
 
         # ROLE Spy.
         role = role.split(' ')[1]
@@ -54,69 +52,57 @@ class ResistanceClient(object):
         bot.onGameRevealed(participants, saboteurs)
 
     def process_MISSION(self, mission, leader):
+        bot = self.getBot()
+
         # MISSION #game-0002 1.2;
-        index, game, details = mission.split(' ')[1:]
-        state = self.getBot(game, index).game
+        details = mission.split(' ')[1]
+        state = bot.game
         state.turn, state.tries = [int(i) for i in details.split('.')]
 
         # LEADER 1-Random.
         state.leader = self.makePlayer(leader.split(' ')[1])
 
-        bot = self.getBot(game, index)
         bot.onMissionAttempt(state.turn, state.tries, state.leader)
 
     def process_SELECT(self, select):
-        index, game, count = select.split(' ')[1:]
-        bot = self.getBot(game, index)
+        count = select.split(' ')[1]
+        bot = self.getBot()
         players = bot.game.players
         selection = sorted(bot.select(players, int(count)), key = lambda p: p.index)
-        self.reply('SELECTED %s %s.' % (self.uuid(bot, game), ', '.join([str(Player(s.name, s.index)) for s in selection])))
+        self.reply('SELECTED %s.' % (', '.join([str(Player(s.name, s.index)) for s in selection])))
 
-    def process_VOTE(self, vote, team):
-        # VOTE #game-0002;
-        index, game = vote.split(' ')[1:]
-        bot = self.getBot(game, index)
-
-        # TEAM 1-Random, 2-Hippie, 3-Paranoid.
-        result = bot.vote(self.makeTeam(team))
+    def process_VOTE(self, team):
+        # VOTE 1-Random, 2-Hippie, 3-Paranoid.
+        bot = self.getBot()
+        bot.game.team = self.makeTeam(team)
+        result = bot.vote(bot.game.team)
         reply = {True: "Yes", False: "No"}
-        self.reply('VOTED %s %s.' % (self.uuid(bot, game), reply[result]))
+        self.reply('VOTED %s.' % (reply[result]))
 
-    def process_VOTED(self, voted, team, votes):
-        index, game = voted.split(' ')[1:]
-        bot = self.getBot(game, index)
+    def process_VOTES(self, votes):
+        bot = self.getBot()
+        v = [bool(b.strip(',.') == 'Yes') for b in votes.split(' ')[1:]]
+        bot.onVoteComplete(bot.game.team, v)
 
-        t = self.makeTeam(team)
-        v = [bool(b.strip(',.') == 'Yes') for b in votes.split(' ')]
-        bot.onVoteComplete(t, v)
-
-    def process_SABOTAGE(self, mission, team):
-        # SABOTAGE #game-0002;
-        index, game = mission.split(' ')[1:]
-        bot = self.getBot(game, index)
-
-        # TEAM 1-Random, 2-Hippie, 3-Paranoid.
-        result = bot.sabotage(self.makeTeam(team))
+    def process_SABOTAGE(self, sabotage):
+        bot = self.getBot()
+        result = bot.sabotage(bot.game.team)
         reply = {True: "Yes", False: "No"}
-        self.reply('SABOTAGED %s %s.' % (self.uuid(bot, game), reply[result]))
+        self.reply('SABOTAGED %s.' % (reply[result]))
 
-    def process_RESULT(self, result, team, sabotages):
-        index, game = result.split(' ')[1:]
-        bot = self.getBot(game, index)
-
-        t = self.makeTeam(team)
+    def process_SABOTAGES(self, sabotages):
+        bot = self.getBot()
         sabotaged = int(sabotages.split(' ')[1])
-        
-        bot.onMissionComplete(t, sabotaged)
+        bot.onMissionComplete(bot.game.team, sabotaged)
 
-    def process_COMPLETE(self, complete, win, spies):
-        index, game = complete.split(' ')[1:]
-        bot = self.getBot(game, index)
+    def process_RESULT(self, result, spies):
+        bot = self.getBot()
 
-        w = bool(win.split(' ')[1] == 'Yes')
+        w = bool(result.split(' ')[1] == 'Yes')
         s = self.makeTeam(spies)
 
         bot.onGameComplete(w, s)
+        self.protocol.part(self.channel)
 
     def makeTeam(self, team):
         return [self.makePlayer(t.strip('., ')) for t in team.split(' ')[1:]]
@@ -125,14 +111,16 @@ class ResistanceClient(object):
         index, name = identifier.split('-')
         return Player(name, int(index))
 
-    def message(self, sender, msg):
-        cmd = msg.split(' ')[0]
+    def message(self, channel, msg):
+        cmd = msg.split(' ')[0].rstrip('?!.')
         if not hasattr(self, 'process_'+cmd):
             return
 
         process = getattr(self, 'process_'+cmd)
-        args = [i.strip(' ') for i in msg.rstrip('.').split(';')]
+        args = [i.strip(' ') for i in msg.rstrip('.?!').split(';')]
+        self.channel = channel
         process(*args)
+        self.channel = None
 
 
 class ResistanceProtocol(irc.IRCClient):
@@ -154,7 +142,7 @@ class ResistanceProtocol(irc.IRCClient):
 
     def privmsg(self, user, channel, msg):
         u = user.split('!')[0]
-        self.client.message(user, msg)
+        self.client.message(channel, msg)
     
 
 class ResistanceFactory(protocol.ClientFactory):
