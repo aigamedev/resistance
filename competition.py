@@ -16,7 +16,8 @@ class Statistic:
     def __init__(self):
         self.resWins = Variable()
         self.spyWins = Variable()
-        self.votes = Variable()
+        self.votesRes = Variable()
+        self.votesSpy = Variable()
         self.selections = Variable()
 
     def total(self):
@@ -32,10 +33,12 @@ class CompetitionRound(Game):
 
         spies = [t for t in team if t.spy]
         s = statistics[player.name]
-        if vote:    
-            s.votes.sample(int(len(spies) == 0))
+        # When there are no spies, we expect support.
+        if not spies:    
+            s.votesRes.sample(int(vote))
+        # For missions with spies, we expect down vote.
         else:
-            s.votes.sample(int(len(spies) > 0))
+            s.votesSpy.sample(int(not vote))
    
     def onPlayerSelected(self, player, team):
         global statistics
@@ -72,9 +75,9 @@ print "\nSPIES"
 for s in sorted(statistics.items(), key = lambda x: -x[1].spyWins.estimate()):
     print " ", s[0], "\t", s[1].spyWins
 
-print "\nRESISTANCE\t\t\t(vote,\tselect)" 
+print "\nRESISTANCE\t\t\t(vote,\t\tselect)" 
 for s in sorted(statistics.items(), key = lambda x: -x[1].resWins.estimate()):
-    print " ", s[0], "\t", s[1].resWins, "\t\t", s[1].votes, "\t", s[1].selections
+    print " ", s[0], "\t", s[1].resWins, "\t\t", s[1].votesRes, s[1].votesSpy, "\t", s[1].selections
 
 print "\nTOTAL" 
 for s in sorted(statistics.items(), key = lambda x: -x[1].total().estimate()):
