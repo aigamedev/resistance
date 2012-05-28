@@ -7,6 +7,8 @@ from geventirc import Client
 from geventirc import message
 from geventirc import handlers
 
+
+from competition import CompetitionRunner
 from player import Player, Bot
 from game import Game
 
@@ -14,6 +16,7 @@ from game import Game
 def YesOrNo(b):
     result = {True: 'Yes', False: 'No'}
     return result[b]
+
 
 class ProxyBot(Bot):
 
@@ -90,32 +93,27 @@ class ProxyBot(Bot):
         self.client.msg(self.name, "COMPLETE %s; WIN %s; SPIES %s." % (self.uuid, YesOrNo(win), self.bakeTeam(spies)))
 
 
-class ResistanceServerHandler(object):
+class ResistanceCompetitionHandler(CompetitionRunner):
     """Host that moderates games of THE RESISTANCE given an IRC server."""
 
     commands = ['PRIVMSG', '001', 'PING']
 
-    def __init__(self, count, bots):
-        self.count = count
-        self.bots = bots
+    def pickPlayersForRound(self):
+        participants = [random.choice(self.competitors) for x in range(0,5)]
+        return [ProxyBot(bot, self.client) for bot in participants]
 
-    def start(self, client):
-        client.send_message(message.Join('#resistance'))
-        for i in range(0, self.count):
-            participants = [random.choice(self.bots) for x in range(0,5)]
-            self.game = Game([ProxyBot(bot, client) for bot in participants])
-            self.game.run()
-            if self.game.won:
-                print >>sys.stderr, 'R',
-            else:
-                print >>sys.stderr, 'S',
-
-        print "\nDONE."
-        client.stop()
+    def start(self):
+        self.client.send_message(message.Join('#resistance'))
+       
+        self.main()
+        self.show()
+   
+        self.client.stop()
 
     def __call__(self, client, msg):
         if msg.command == '001':
-            self.start(client)
+            self.client = client
+            self.start()
         elif msg.command == 'PING':
             client.send_message(message.Pong())
         else:
@@ -135,7 +133,8 @@ if __name__ == '__main__':
         sys.exit(-1)
 
     irc = Client('localhost', 'aigamedev',  port=6667)
-    irc.add_handler(ResistanceServerHandler(int(sys.argv[1]), sys.argv[2:]))
+    h = ResistanceCompetitionHandler([s.split('.')[-1] for s in sys.argv[2:]], int(sys.argv[1]))
+    irc.add_handler(h)
     irc.start()
     irc.join()
 

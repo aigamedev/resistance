@@ -50,6 +50,7 @@ class CompetitionRunner(object):
     def __init__(self, competitors, rounds = 10000):
         self.competitors = competitors
         self.rounds = rounds
+        self.game = None
 
     def pickPlayersForRound(self):
         # Only one instance of each bot per game, assumes more than five.
@@ -63,7 +64,7 @@ class CompetitionRunner(object):
             if i % 2500 == 0: print >>sys.stderr, 'o'
             elif i % 500 == 0: print >>sys.stderr, '.',
 
-            g = CompetitionRound(self.pickPlayersForRound())
+            g = self.game = CompetitionRound(self.pickPlayersForRound())
             for b in g.bots:
                 statistics.setdefault(b.name, CompetitionStatistics())
 
