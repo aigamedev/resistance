@@ -10,16 +10,13 @@ class ResistanceClient(object):
     def __init__(self, protocol, constructor):
         self.protocol = protocol
         self.constructor = constructor
-        self.games = {}
+        self.bots = {}
 
     def uuid(self, bot, game):
         return "%s %s" % (Player.__repr__(bot), game)
 
     def getBot(self, game, index):
-        for b in self.games[game]['bots']:
-            if index == Player.__repr__(b):
-                return b
-        assert False, "Bot '%s' not found for %s!" % (index, game)
+        return self.bots[game+'.'+index]
 
     def reply(self, message):
         self.protocol.msg(self.recipient, message)
@@ -31,12 +28,11 @@ class ResistanceClient(object):
 
     def process_REVEAL(self, mission, identifier, role, players, spies = None):
         game = mission.split(' ')[1]
-        self.makeGame(game)
 
         # ID 2-Random;
         index, name = identifier.split(' ')[1].split('-')
-        bot = self.constructor(self.games[game]['state'], int(index), False)
-        self.games[game]['bots'].append(bot)
+        bot = self.constructor(State(), int(index), False)
+        self.bots["%s.%s-%s" % (game, index, name)] = bot
 
         # ROLE Spy.
         role = role.split(' ')[1]
@@ -46,21 +42,21 @@ class ResistanceClient(object):
         participants = []
         for p in players.split(' ')[1:]:
             participants.append(self.makePlayer(p.rstrip(',')))
-        self.games[game]['state'].players = participants
+        bot.game.players = participants
 
         # SPIES 1-Deceiver.
         saboteurs = []
         if spies:
             for s in spies.split(' ')[1:]:
                 saboteurs.append(self.makePlayer(s.rstrip(',')))
-            self.games[game]['state'].spies = saboteurs
+            bot.game.spies = saboteurs
 
         bot.onGameRevealed(participants, saboteurs)
 
     def process_MISSION(self, mission, leader):
         # MISSION #game-0002 1.2;
         index, game, details = mission.split(' ')[1:]
-        state = self.games[game]['state']
+        state = self.getBot(game, index).game
         state.turn, state.tries = [int(i) for i in details.split('.')]
 
         # LEADER 1-Random.
@@ -72,7 +68,7 @@ class ResistanceClient(object):
     def process_SELECT(self, select):
         index, game, count = select.split(' ')[1:]
         bot = self.getBot(game, index)
-        players = self.games[game]['state'].players
+        players = bot.game.players
         selection = sorted(bot.select(players, int(count)), key = lambda p: p.index)
         self.reply('SELECTED %s %s.' % (self.uuid(bot, game), ', '.join([str(Player(s.name, s.index)) for s in selection])))
 
@@ -129,10 +125,6 @@ class ResistanceClient(object):
         index, name = identifier.split('-')
         return Player(name, int(index))
 
-    def makeGame(self, game):
-        if game not in self.games:
-            self.games[game] = {'state': State(), 'bots': []}
-
     def message(self, sender, msg):
         cmd = msg.split(' ')[0]
         # print msg
@@ -183,13 +175,17 @@ class ResistanceFactory(protocol.ClientFactory):
 
 
 if __name__ == '__main__':
+    import importlib
+    import sys
+    
+    if len(sys.argv) == 1:
+        print 'USAGE: client.py file.BotName [...]'
+        sys.exit(-1)
 
-    from bots import RandomBot, Deceiver, Hippie, Paranoid, RuleFollower
+    for path in sys.argv[1:]:
+        filename, classname = path.split('.')
+        module = importlib.import_module(filename)
+        cls = getattr(module, classname)
+        reactor.connectTCP("localhost", 6667, ResistanceFactory(cls))
 
-    reactor.connectTCP("localhost", 6667, ResistanceFactory(RandomBot))
-    reactor.connectTCP("localhost", 6667, ResistanceFactory(Deceiver))
-    reactor.connectTCP("localhost", 6667, ResistanceFactory(Hippie))
-    reactor.connectTCP("localhost", 6667, ResistanceFactory(Paranoid))
-    reactor.connectTCP("localhost", 6667, ResistanceFactory(RuleFollower))
     reactor.run()
-

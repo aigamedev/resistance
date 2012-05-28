@@ -1,4 +1,5 @@
 import sys
+import random
 
 import gevent
 from gevent.event import AsyncResult
@@ -60,7 +61,7 @@ class ProxyBot(Bot):
         return self._select.get()
 
     def process_SELECTED(self, msg):
-        team = [self.makePlayer(p.strip(',.')) for p in msg[4:]]
+        team = [self.makePlayer(p.strip(' ,.')) for p in msg[4:]]
         self._select.set(team)
 
     def vote(self, team):
@@ -94,14 +95,15 @@ class ResistanceServerHandler(object):
 
     commands = ['PRIVMSG', '001', 'PING']
 
-    def __init__(self):
-        pass
+    def __init__(self, count, bots):
+        self.count = count
+        self.bots = bots
 
     def start(self, client):
         client.send_message(message.Join('#resistance'))
-
-        for i in range(0, 100):
-            self.game = Game([ProxyBot(bot, client) for bot in ['RandomBot', 'Deceiver', 'Paranoid', 'Hippie', 'RuleFollower']])
+        for i in range(0, self.count):
+            participants = [random.choice(self.bots) for x in range(0,5)]
+            self.game = Game([ProxyBot(bot, client) for bot in participants])
             self.game.run()
             if self.game.won:
                 print >>sys.stderr, 'R',
@@ -127,8 +129,13 @@ class ResistanceServerHandler(object):
                     process(msg.params)
             
 if __name__ == '__main__':
+    
+    if len(sys.argv) == 1:
+        print 'USAGE: server.py 25 BotName [...]'
+        sys.exit(-1)
+
     irc = Client('localhost', 'aigamedev',  port=6667)
-    irc.add_handler(ResistanceServerHandler())
+    irc.add_handler(ResistanceServerHandler(int(sys.argv[1]), sys.argv[2:]))
     irc.start()
     irc.join()
 
