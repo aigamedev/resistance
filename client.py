@@ -24,7 +24,7 @@ class ResistanceClient(object):
     def process_JOIN(self, msg):
         game = msg.rstrip('.').split(' ')[1]
         self.protocol.join(game)
-        self.reply('JOINED %s.' % (game))
+        self.recipient = game
 
     def process_REVEAL(self, mission, identifier, role, players, spies = None):
         game = mission.split(' ')[1]
@@ -127,12 +127,12 @@ class ResistanceClient(object):
 
     def message(self, sender, msg):
         cmd = msg.split(' ')[0]
-        # print msg
+        if not hasattr(self, 'process_'+cmd):
+            return
+
         process = getattr(self, 'process_'+cmd)
         args = [i.strip(' ') for i in msg.rstrip('.').split(';')]
-        self.recipient = sender.split('!')[0]
         process(*args)
-        self.recipient = None
 
 
 class ResistanceProtocol(irc.IRCClient):
