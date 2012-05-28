@@ -4,15 +4,11 @@ import sys
 
 from game import Game
 from util import Variable
-from bots import RandomBot, RuleFollower, Paranoid, Hippie, Deceiver
-from aigd import LogicalBot, Statistician 
-
-competitors = [RuleFollower, LogicalBot, Statistician, Deceiver, Paranoid, Hippie, RandomBot]
 
 statistics = {}
 
 
-class Statistic:
+class CompetitionStatistics:
     def __init__(self):
         self.resWins = Variable()
         self.spyWins = Variable()
@@ -49,37 +45,62 @@ class CompetitionRound(Game):
         statistics[player.name].selections.sample(int(len(spies) == 0))
 
 
-GAMES = 10000
+class CompetitionRunner(object):
 
-for i in range(1,GAMES+1):
-    if i % 2500 == 0: print >>sys.stderr, 'o'
-    elif i % 500 == 0: print >>sys.stderr, '.',
+    def __init__(self, competitors, rounds = 10000):
+        self.competitors = competitors
+        self.rounds = rounds
 
-    players = [random.choice(competitors) for x in range(0,5)]
-    # players = random.sample(competitors, 5)
-    g = CompetitionRound(players)
-    for p in g.bots:
-        statistics.setdefault(p.name, Statistic())
+    def pickPlayersForRound(self):
+        # Only one instance of each bot per game, assumes more than five.
+        # return players = random.sample(competitors, 5)
+        
+        # Multiple possible bot instances per game, works for any number.
+        return [random.choice(self.competitors) for x in range(0,5)] 
 
-    g.run()
+    def main(self):
+        for i in range(1,self.rounds+1):
+            if i % 2500 == 0: print >>sys.stderr, 'o'
+            elif i % 500 == 0: print >>sys.stderr, '.',
 
-    win = bool(g.state.wins >= 3)
-    for p in g.bots:
-        s = statistics.get(p.name, Statistic())
+            g = CompetitionRound(self.pickPlayersForRound())
+            for b in g.bots:
+                statistics.setdefault(b.name, CompetitionStatistics())
 
-        s.spyWins.sample(int(p.spy and not win))
-        s.resWins.sample(int(not p.spy and win))
+            g.run()
+            for b in g.bots:
+                s = statistics.get(b.name)
+
+                s.spyWins.sample(int(b.spy and not g.won))
+                s.resWins.sample(int(not b.spy and g.won))
+
+    def show(self):
+        print "\nSPIES"
+        for s in sorted(statistics.items(), key = lambda x: -x[1].spyWins.estimate()):
+            print " ", s[0], "\t", s[1].spyWins
+
+        print "\nRESISTANCE\t\t\t(vote,\t\tselect)" 
+        for s in sorted(statistics.items(), key = lambda x: -x[1].resWins.estimate()):
+            print " ", s[0], "\t", s[1].resWins, "\t\t", s[1].votesRes, s[1].votesSpy, "\t", s[1].selections
+
+        print "\nTOTAL" 
+        for s in sorted(statistics.items(), key = lambda x: -x[1].total().estimate()):
+            print " ", s[0], "\t", s[1].total()
 
 
-print "\nSPIES" 
-for s in sorted(statistics.items(), key = lambda x: -x[1].spyWins.estimate()):
-    print " ", s[0], "\t", s[1].spyWins
+if __name__ == '__main__':
+    import importlib
+    
+    if len(sys.argv) <= 2:
+        print 'USAGE: competition.py 10000 file.BotName [...]'
+        sys.exit(-1)
 
-print "\nRESISTANCE\t\t\t(vote,\t\tselect)" 
-for s in sorted(statistics.items(), key = lambda x: -x[1].resWins.estimate()):
-    print " ", s[0], "\t", s[1].resWins, "\t\t", s[1].votesRes, s[1].votesSpy, "\t", s[1].selections
+    competitors = []
+    for filename, classname in [s.split('.') for s in sys.argv[2:]]:
+        module = importlib.import_module(filename)
+        competitors.append(getattr(module, classname))
 
-print "\nTOTAL" 
-for s in sorted(statistics.items(), key = lambda x: -x[1].total().estimate()):
-    print " ", s[0], "\t", s[1].total()
+    runner = CompetitionRunner(competitors, int(sys.argv[1]))
+    runner.main()
+    runner.show()
 
