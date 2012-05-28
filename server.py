@@ -1,3 +1,7 @@
+# New features to add to this script:
+# - Check current games for players disconnecting and invalidate them.
+# - Run multiple games in parallel in multiple greenlets for speed.
+
 import sys
 import random
 
@@ -5,8 +9,6 @@ import gevent
 from gevent.event import AsyncResult
 from geventirc import Client
 from geventirc import message
-from geventirc import handlers
-
 
 from competition import CompetitionRunner
 from player import Player, Bot
@@ -96,27 +98,47 @@ class ProxyBot(Bot):
 class ResistanceCompetitionHandler(CompetitionRunner):
     """Host that moderates games of THE RESISTANCE given an IRC server."""
 
-    commands = ['PRIVMSG', '001', 'PING']
+    commands = ['PRIVMSG', 'PING', 'JOIN', 'PART',
+                '001', # CONNECT
+                '353', # NAMES
+    ]
 
     def pickPlayersForRound(self):
-        participants = [random.choice(self.competitors) for x in range(0,5)]
+        if len(self.competitors) < 5:
+            participants = [random.choice(self.competitors) for x in range(0,5)]
+        else:
+            participants = random.sample(self.competitors, 5)
         return [ProxyBot(bot, self.client) for bot in participants]
 
     def start(self):
-        self.client.send_message(message.Join('#resistance'))
-       
         self.main()
         self.show()
+
+        # self.client.send_message(message.Command('#resistance', 'NAMES'))
    
         self.client.stop()
 
     def __call__(self, client, msg):
         if msg.command == '001':
             self.client = client
-            self.start()
+            client.send_message(message.Join('#resistance'))
         elif msg.command == 'PING':
-            client.send_message(message.Pong())
-        else:
+            client.send_message(message.Command(msg.params, 'PONG'))
+        elif msg.command == '353':
+            self.competitors = [u.strip('+@') for u in msg.params[3:]]
+            self.competitors.remove(client.nick)
+            # Once we've connected and joined the channel, we'll get a list
+            # of people there.  We can start games with those!
+            self.start()
+        elif msg.command == 'JOIN':
+            user = msg.prefix.split('!')[0].strip('+@')
+            if user != client.nick:
+                self.competitors.append(user)
+        elif msg.command == 'PART':
+            user = msg.prefix.split('!')[0].strip('+@')
+            if user != client.nick:
+                self.competitors.remove(user)
+        elif msg.command == 'PRIVMSG':
             for bot in self.game.bots:
                 if bot != bot.makePlayer(msg.params[2]):
                     continue
@@ -125,15 +147,19 @@ class ResistanceCompetitionHandler(CompetitionRunner):
                     process = getattr(bot, name)
                     # print ' '.join(msg.params[1:])
                     process(msg.params)
+        # else:
+        #    print msg.command
+        #    print msg.params
             
+
 if __name__ == '__main__':
     
     if len(sys.argv) == 1:
-        print 'USAGE: server.py 25 BotName [...]'
+        print 'USAGE: server.py 25'
         sys.exit(-1)
 
     irc = Client('localhost', 'aigamedev',  port=6667)
-    h = ResistanceCompetitionHandler([s.split('.')[-1] for s in sys.argv[2:]], int(sys.argv[1]))
+    h = ResistanceCompetitionHandler([], int(sys.argv[1]))
     irc.add_handler(h)
     irc.start()
     irc.join()
