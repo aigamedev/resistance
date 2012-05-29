@@ -1,13 +1,15 @@
 # COMPETITION
 # - Run multiple games in parallel in multiple greenlets for speed.
 # - Check current games for players disconnecting and invalidate them.
+# - Have clients detect if the server disconnects or leaves a channel.
+# - Let the server detect if the bot is already in the private channel.
 
 # HUMAN PLAY
+# - Index the players and channels from [1..5] rather than starting at zero.
 # - Simplify most responses to avoid the need for commands altogether.
 # - Parse human input better for SELECT list and the yes/no responses.
-# - Require a sabotage response from humans, always to make it fair.
 # - Provide a HELP command that provides some contextual explanation.
-
+# - (DONE) Require a sabotage response from humans, always to make it fair.
 
 import sys
 import random
@@ -98,16 +100,27 @@ class ProxyBot(Bot):
 
     def onVoteComplete(self, votes):
         self.send("VOTES %s." % (', '.join([YesOrNo(v) for v in votes])))
+        
+        if self in self.state.team:
+            self.send("SABOTAGE?")
+            self._sabotage = AsyncResult()
+        else:
+            self._sabotage = None
 
     def sabotage(self):
-        self.send("SABOTAGE?")
-        self._sabotage = AsyncResult()
         return self._sabotage.get()
 
     def process_SABOTAGED(self, sabotaged):
         self._sabotage.set(sabotaged[2] == 'Yes.')
 
     def onMissionComplete(self, sabotaged):
+        # Force synchronization in case sabotage() is not called due to the bot
+        # being resistance.  This helps hide human identity by having the same
+        # input delay in Spy or Resistance cases.
+        if self._sabotage and not self._sabotage.ready():
+            s = self._sabotage.get()
+            assert not s, "Expecting sabotage() to be False if it was handled automatically."
+
         self.send("SABOTAGES %i." % (sabotaged))
 
     def onGameComplete(self, win, spies):
@@ -174,7 +187,8 @@ class ResistanceCompetitionHandler(CompetitionRunner):
             self.competitors.remove(client.nick)
             # Once we've connected and joined the channel, we'll get a list
             # of people there.  We can start games with those!
-            # self.start()
+            if self.rounds > 0:
+                self.start()
         elif msg.command == 'JOIN':
             user = msg.prefix.split('!')[0].strip('+@')
             if user == client.nick:
@@ -212,12 +226,12 @@ class ResistanceCompetitionHandler(CompetitionRunner):
 
 if __name__ == '__main__':
     
-    if len(sys.argv) == 1:
-        print 'USAGE: server.py 25'
-        sys.exit(-1)
-
+    rounds = 0
+    if len(sys.argv) > 1:
+        rounds = int(sys.argv[1])
+    
     irc = Client('localhost', 'aigamedev',  port=6667)
-    h = ResistanceCompetitionHandler([], int(sys.argv[1]))
+    h = ResistanceCompetitionHandler([], rounds)
     irc.add_handler(h)
     irc.start()
     irc.join()

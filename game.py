@@ -1,5 +1,6 @@
-import random
 import itertools
+import random
+
 from player import Player
 
 
@@ -49,7 +50,7 @@ class Game:
     
         # Configuration for the game itself.
         self.participants = [2, 3, 2, 3, 3]
-        self.leader = itertools.cycle(self.bots) 
+        self.leader = itertools.cycle(self.state.players) 
 
     def run(self):
         """Main entry point for the resistance game.  Once initialized call this to 
@@ -101,7 +102,8 @@ class Game:
         does not have a clear majority."""
 
         # Step 1) Pick the leader and ask for a selection of players on the team.
-        l = self.state.leader = self.leader.next()
+        self.state.leader = self.leader.next()
+        l = self.bots[self.state.leader.index]
         for p in self.bots:
             p.onMissionAttempt(self.state.turn, self.state.tries, self.state.leader)
 
@@ -154,7 +156,14 @@ class Game:
             self.state.wins += 1
             
         # Step 5) Pass back the results of the mission to the bots.
-        for p in self.bots:
+        # Process the team first to make sure any timing of the result
+        # is the same for all player roles, specifically over IRC.
+        for s in selected:
+            p = self.bots[s.index]
+            p.onMissionComplete(sabotaged)
+        # Now, with delays taken into account, all other results can be
+        # passed back safely without divulging Spy/Resistance identities.
+        for p in [b for b in self.bots if b not in selected]:
             p.onMissionComplete(sabotaged)
 
         return True

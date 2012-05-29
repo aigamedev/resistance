@@ -80,7 +80,7 @@ class ResistanceClient(object):
 
     def process_SABOTAGE(self, sabotage):
         bot = self.getBot()
-        result = bot.sabotage()
+        result = bot.spy and bot.sabotage()
         reply = {True: "Yes", False: "No"}
         self.reply('SABOTAGED %s.' % (reply[result]))
 
