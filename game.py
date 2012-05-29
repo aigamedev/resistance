@@ -12,7 +12,8 @@ class State:
         self.tries = 1
         self.wins = 0
         self.leader = None
-        self.players = []
+        self.team = None
+        self.players = None
     
     def losses(self):
         """How many games the resistance lost, or the spies won."""
@@ -116,6 +117,9 @@ class Game:
         self.onPlayerSelected(l, [b for b in self.bots if b in selected])
         # Copy the list to make sure no internal data is leaked to the other bots!
         selected = [Player(s.name, s.index) for s in selected]        
+        self.state.team = selected
+        for p in self.bots:
+            p.onTeamSelected(self.state.leader, selected)
 
         # Step 2) Notify other bots of the selection and ask for a vote.
         votes = []
@@ -130,7 +134,7 @@ class Game:
     
         # Step 3) Notify players of the vote result.
         for p in self.bots:
-            p.onVoteComplete(selected[:], votes[:])
+            p.onVoteComplete(votes[:])
 
         # Bail out if there was no clear majority...
         if score <= 2:
@@ -143,7 +147,7 @@ class Game:
             p = self.bots[s.index]
             result = False
             if p.spy:
-                result = p.sabotage(selected[:])
+                result = p.sabotage()
             sabotaged += int(result)
 
         if sabotaged == 0:
@@ -151,7 +155,7 @@ class Game:
             
         # Step 5) Pass back the results of the mission to the bots.
         for p in self.bots:
-            p.onMissionComplete(selected[:], sabotaged)
+            p.onMissionComplete(sabotaged)
 
         return True
 

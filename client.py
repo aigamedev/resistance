@@ -76,18 +76,18 @@ class ResistanceClient(object):
     def process_VOTES(self, votes):
         bot = self.getBot()
         v = [bool(b.strip(',.') == 'Yes') for b in votes.split(' ')[1:]]
-        bot.onVoteComplete(bot.game.team, v)
+        bot.onVoteComplete(v)
 
     def process_SABOTAGE(self, sabotage):
         bot = self.getBot()
-        result = bot.sabotage(bot.game.team)
+        result = bot.sabotage()
         reply = {True: "Yes", False: "No"}
         self.reply('SABOTAGED %s.' % (reply[result]))
 
     def process_SABOTAGES(self, sabotages):
         bot = self.getBot()
         sabotaged = int(sabotages.split(' ')[1])
-        bot.onMissionComplete(bot.game.team, sabotaged)
+        bot.onMissionComplete(sabotaged)
 
     def process_RESULT(self, result, spies):
         bot = self.getBot()

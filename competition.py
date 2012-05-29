@@ -28,6 +28,8 @@ class CompetitionRound(Game):
             return
 
         spies = [t for t in team if t.spy]
+
+        statistics.setdefault(player.name, CompetitionStatistics())
         s = statistics[player.name]
         # When there are no spies, we expect support.
         if not spies:    
@@ -42,6 +44,7 @@ class CompetitionRound(Game):
             return
 
         spies = [t for t in team if t.spy]
+        statistics.setdefault(player.name, CompetitionStatistics())
         statistics[player.name].selections.sample(int(len(spies) == 0))
 
 
@@ -64,12 +67,10 @@ class CompetitionRunner(object):
             if i % 2000 == 0: print >>sys.stderr, 'o'
             elif i % 50 == 0: print >>sys.stderr, '.',
 
-            for b in g.bots:
-                statistics.setdefault(b.name, CompetitionStatistics())
-
             g = self.play(CompetitionRound, self.pickPlayersForRound())
 
             for b in g.bots:
+                statistics.setdefault(b.name, CompetitionStatistics())
                 s = statistics.get(b.name)
 
                 s.spyWins.sample(int(b.spy and not g.won))

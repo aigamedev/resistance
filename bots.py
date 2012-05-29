@@ -12,7 +12,7 @@ class Paranoid(Bot):
     def vote(self, team): 
         return bool(self == self.game.leader)
 
-    def sabotage(self, team):
+    def sabotage(self):
         return True 
 
 
@@ -25,7 +25,7 @@ class Hippie(Bot):
     def vote(self, team): 
         return True
 
-    def sabotage(self, team):
+    def sabotage(self):
         return True
 
 
@@ -39,7 +39,7 @@ class RandomBot(Bot):
     def vote(self, team): 
         return random.choice([True, False])
 
-    def sabotage(self, team):
+    def sabotage(self):
         return random.choice([True, False])
 
 
@@ -64,9 +64,9 @@ class Deceiver(Bot):
             return False
         return True
 
-    def sabotage(self, team):
+    def sabotage(self):
         # Shoot down only missions with more than another person.
-        return len(team) > 2
+        return len(self.game.team) > 2
 
 
 class RuleFollower(Bot):
@@ -91,6 +91,6 @@ class RuleFollower(Bot):
             return False
         return True
 
-    def sabotage(self, team):
+    def sabotage(self):
         return True
 

@@ -81,6 +81,14 @@ class Bot(Player):
         """
         raise NotImplemented
 
+    def onTeamSelected(self, leader, team):
+        """Called immediately after the team is selected to go on a mission,
+        and before the voting happens.
+        @param leader   The leader in charge for this mission.
+        @param team     The team that was selected by the current leader.
+        """
+        pass
+
     def vote(self, team):
         """Given a selected team, decide whether the mission should proceed.
         @param team      List of players with index and .
@@ -88,21 +96,20 @@ class Bot(Player):
         """ 
         raise NotImplemented
 
-    def onVoteComplete(self, team, votes):
+    def onVoteComplete(self, votes):
         """Callback once the whole team has voted.
         @param votes        Boolean votes for each player (ordered).
-        @param team         The team that was chosen for this vote.
         """
         pass
 
-    def sabotage(self, team):
+    def sabotage(self):
         """Decide what to do on the mission once it has been approved.  This
         function is only called if you're a spy, otherwise you have no choice.
         @return bool        Yes to shoot down a mission.
         """
         raise NotImplemented
 
-    def onMissionComplete(self, team, sabotaged):
+    def onMissionComplete(self, sabotaged):
         """Callback once the players have been chosen.
         @param selected     List of players that participated in the mission.
         @param sabotaged    Integer how many times the mission was sabotaged.

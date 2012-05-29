@@ -86,18 +86,20 @@ class ProxyBot(Bot):
         team = [makePlayer(p.strip(' ,.')) for p in msg[2:]]
         self._select.set(team)
 
-    def vote(self, team):
+    def onTeamSelected(self, leader, team):
         self.send("VOTE %s?" % (self.bakeTeam(team)))
         self._vote = AsyncResult()
+
+    def vote(self, team):
         return self._vote.get()
 
     def process_VOTED(self, msg):
         self._vote.set(msg[2] == 'Yes.')
 
-    def onVoteComplete(self, team, votes):
+    def onVoteComplete(self, votes):
         self.send("VOTES %s." % (', '.join([YesOrNo(v) for v in votes])))
 
-    def sabotage(self, team):
+    def sabotage(self):
         self.send("SABOTAGE?")
         self._sabotage = AsyncResult()
         return self._sabotage.get()
@@ -105,7 +107,7 @@ class ProxyBot(Bot):
     def process_SABOTAGED(self, sabotaged):
         self._sabotage.set(sabotaged[2] == 'Yes.')
 
-    def onMissionComplete(self, team, sabotaged):
+    def onMissionComplete(self, sabotaged):
         self.send("SABOTAGES %i." % (sabotaged))
 
     def onGameComplete(self, win, spies):

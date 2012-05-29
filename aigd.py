@@ -31,7 +31,7 @@ class LogicalBot(Bot):
         if len(team) == count-1:
             return me + team
         # Try to put together another team that combines past winners and not spies.
-        others = [p for p in players if p.index != self.index and p not in (team+self.spies)]
+        others = [p for p in players if p != self and p not in (team+self.spies)]
         return self._sample(me + team, others, count-1-len(team))
 
     def _sample(self, selected, candidates, count):
@@ -72,29 +72,29 @@ class LogicalBot(Bot):
         # Otherwise, just approve the team and get more information. 
         return True
 
-    def onVoteComplete(self, team, votes):
+    def onVoteComplete(self, votes):
         self.team = None
     
-    def onMissionComplete(self, team, sabotaged):
+    def onMissionComplete(self, sabotaged):
         if self.spy:
             return
 
         # Forget this failed team so we don't pick it!
         if not sabotaged:
-            self.team = team
+            self.team = self.game.team
             return
 
-        suspects = [p for p in team if p not in self.spies and p != self]
-        spies = [p for p in team if p in self.spies]
+        suspects = [p for p in self.game.team if p not in self.spies and p != self]
+        spies = [p for p in self.game.team if p in self.spies]
         # We have more thumbs down than suspects and spies!
         if sabotaged >= len(suspects) + len(spies):
             for spy in [s for s in suspects if s not in self.spies]:
                 self.spies.append(spy)
         else:
             # Remember this specific failed teams so we can taboo search.
-            self.taboo.append([p for p in team if p != self])
+            self.taboo.append([p for p in self.game.team if p != self])
 
-    def sabotage(self, team):
+    def sabotage(self):
         return self.spy
 
 
@@ -205,28 +205,28 @@ class Statistician(Bot):
     def _estimate(self, player):
         return self.local_statistics[player.name].probability.estimate()
 
-    def sabotage(self, team):
+    def sabotage(self):
         return self.spy
 
-    def onMissionComplete(self, team, sabotaged):
+    def onMissionComplete(self, sabotaged):
         # Store this information for later once we know the spies.
-        self.missions.append((team, sabotaged))
+        self.missions.append((self.game.team[:], sabotaged))
         if self.spy:
             return
 
         # Update probabilities for this current game...
-        others = [p for p in team if p != self]
+        others = [p for p in self.game.team if p != self]
         probability = float(sabotaged) / float(len(others))
         for p in others:
             self.local_statistics[p.name].update(probability)
 
         probability = 1.0 - float(sabotaged) / float(4 - len(others))
-        for p in [p for p in self.players if p not in team]:
+        for p in [p for p in self.players if p not in self.game.team]:
             self.local_statistics[p.name].update(probability)
     
-    def onVoteComplete(self, team, votes):
+    def onVoteComplete(self, votes):
         # Step 2) Store.
-        self.votes.append((votes, team))
+        self.votes.append((votes, self.game.team[:]))
 
         # Based on the voting, we can do many things:
         #   - Infer the probability of spies being on the team.
@@ -235,7 +235,7 @@ class Statistician(Bot):
         # Step 1) As resistance, run a bunch of predictions.
         # According to Bayes' Theorem:
         #   P(A|B) = P(B|A)  * P(A) / P(B)
-        spied = bool(len([p for p in team if p in self.spies]) > 0)
+        spied = bool(len([p for p in self.game.team if p in self.spies]) > 0)
                 # or self._discard(team)
         if spied:
             for player, vote in zip(self.game.players, votes):
@@ -277,7 +277,7 @@ class Statistician(Bot):
             res_Vote = self.fetch(player, ['spy_VotesForRes']) * (0.0 + p) \
                      + self.fetch(player, ['res_VotesForRes']) * (1.0 - p)
 
-            for member in team:
+            for member in self.game.team:
                 # In this case, Bayes' Theorem with:
                 #   - A is the probability of team 'member' being a spy.
                 #   - B is the probability of 'player' voting true.
