@@ -1,6 +1,13 @@
-# New features to add to this script:
-# - Check current games for players disconnecting and invalidate them.
+# COMPETITION
 # - Run multiple games in parallel in multiple greenlets for speed.
+# - Check current games for players disconnecting and invalidate them.
+
+# HUMAN PLAY
+# - Simplify most responses to avoid the need for commands altogether.
+# - Parse human input better for SELECT list and the yes/no responses.
+# - Require a sabotage response from humans, always to make it fair.
+# - Provide a HELP command that provides some contextual explanation.
+
 
 import sys
 import random
@@ -24,9 +31,10 @@ def makePlayer(identifier):
     index, name = identifier.split('-')
     return Player(name, int(index))
 
+
 class ProxyBot(Bot):
 
-    def __init__(self, name, client):
+    def __init__(self, name, client, game):
         self.name = name
         self.client = client
 
@@ -34,7 +42,7 @@ class ProxyBot(Bot):
         self._select = None
         self._sabotage = None
         self._join = None
-        self.game = '#game-0001'
+        self.game = game 
 
     def __call__(self, game, index, spy):
         """This function pretends to be a Builder, but in fact just
@@ -49,7 +57,6 @@ class ProxyBot(Bot):
 
         self._join = Event() 
         self.client.msg(self.name, "JOIN %s." % (self.channel))
-        self.client.msg('#resistance', "STARTING %s." % (self.game))
         return self
 
     def bakeTeam(self, team):
@@ -65,7 +72,7 @@ class ProxyBot(Bot):
             s = "; SPIES " + self.bakeTeam(spies)
 
         self._join.wait()
-        self.send('REVEAL %s; ID %s; ROLE %s; PLAYERS %s%s.' % (self.game, Player.__repr__(self), roles[self.spy], self.bakeTeam(players), s))
+        self.send('REVEAL %s; ROLE %s; PLAYERS %s%s.' % (self.game, roles[self.spy], self.bakeTeam(players), s))
 
     def onMissionAttempt(self, mission, tries, leader):
         self.send('MISSION %i.%i; LEADER %s.' % (mission, tries, Player.__repr__(leader)))
@@ -104,8 +111,6 @@ class ProxyBot(Bot):
     def onGameComplete(self, win, spies):
         self.send("RESULT %s; SPIES %s." % (YesOrNo(win), self.bakeTeam(spies)))
 
-        self.client.msg('#resistance', "FINISHED %s." % (self.game))
-
         self.client.send_message(message.Command(self.game, 'PART'))
         self.client.send_message(message.Command(self.channel, 'PART'))
 
@@ -124,7 +129,7 @@ class ResistanceCompetitionHandler(CompetitionRunner):
             participants = [random.choice(self.competitors) for x in range(0,5)]
         else:
             participants = random.sample(self.competitors, 5)
-        return [ProxyBot(bot, self.client) for bot in participants]
+        return [ProxyBot(bot, self.client, "#game-0002") for bot in participants]
 
     def start(self):
         self.main()
@@ -133,6 +138,26 @@ class ResistanceCompetitionHandler(CompetitionRunner):
         # self.client.send_message(message.Command('#resistance', 'NAMES'))
    
         self.client.stop()
+
+    def run(self, game):
+        for s in '\t,.!;?': game = game.replace(s, ' ')
+        candidates = [c for c in game.split(' ') if c]
+
+        # Put an '@' in front of humans when specifying the players.
+        bots = [c for c in candidates if '@' not in c]
+
+        while len(candidates) < 5:
+            missing = min(5 - len(candidates), len(bots))
+            candidates.extend(random.sample(bots, missing))
+        
+        if len(candidates) > 5:
+            candidates = random.sample(candidates, 5)
+
+        self.client.msg('#resistance', 'PLAYING %s!' % (' '.join(candidates)))
+        players = [ProxyBot(bot.lstrip('@'), self.client, "#game-0001") for bot in candidates]
+        g = self.play(Game, players)
+        result = {True: "Resistance WON!", False: "Spies WON..."}
+        self.client.msg('#resistance', 'PLAYED %s. %s' % (' '.join(candidates), result[g.won]))
 
     def __call__(self, client, msg):
         if msg.command == '001':
@@ -147,7 +172,7 @@ class ResistanceCompetitionHandler(CompetitionRunner):
             self.competitors.remove(client.nick)
             # Once we've connected and joined the channel, we'll get a list
             # of people there.  We can start games with those!
-            self.start()
+            # self.start()
         elif msg.command == 'JOIN':
             user = msg.prefix.split('!')[0].strip('+@')
             if user == client.nick:
@@ -170,6 +195,10 @@ class ResistanceCompetitionHandler(CompetitionRunner):
                 self.competitors.remove(user)
         elif msg.command == 'PRIVMSG':
             channel = msg.params[0].lstrip(':')
+            if channel == '#resistance':
+                if msg.params[1] == 'PLAY':
+                    self.run(' '.join(msg.params[2:]))
+                return
             for bot in self.game.bots:
                 if bot.channel != channel:
                     continue
@@ -177,10 +206,7 @@ class ResistanceCompetitionHandler(CompetitionRunner):
                 if hasattr(bot, name):
                     process = getattr(bot, name)
                     process(msg.params)
-        # else:
-        #    print msg.command
-        #    print msg.params
-            
+ 
 
 if __name__ == '__main__':
     

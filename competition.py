@@ -61,19 +61,24 @@ class CompetitionRunner(object):
 
     def main(self):
         for i in range(1,self.rounds+1):
-            if i % 2500 == 0: print >>sys.stderr, 'o'
-            elif i % 500 == 0: print >>sys.stderr, '.',
+            if i % 2000 == 0: print >>sys.stderr, 'o'
+            elif i % 50 == 0: print >>sys.stderr, '.',
 
-            g = self.game = CompetitionRound(self.pickPlayersForRound())
             for b in g.bots:
                 statistics.setdefault(b.name, CompetitionStatistics())
 
-            g.run()
+            g = self.play(CompetitionRound, self.pickPlayersForRound())
+
             for b in g.bots:
                 s = statistics.get(b.name)
 
                 s.spyWins.sample(int(b.spy and not g.won))
                 s.resWins.sample(int(not b.spy and g.won))
+
+    def play(self, GameType, players):
+        g = self.game = GameType(players)
+        g.run()
+        return g
 
     def show(self):
         print "\nSPIES"

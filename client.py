@@ -13,28 +13,22 @@ class ResistanceClient(object):
         self.bots = {}
         self.channel = None
 
-    def getBot(self, game = None, index = None):
+    def getBot(self):
         return self.bots[self.channel]
 
     def reply(self, message):
         self.protocol.msg(self.channel, message)
 
     def process_JOIN(self, msg):
-        game = msg.rstrip('.').split(' ')[1]
-        self.channel = game
-        self.protocol.join(self.channel)
+        channel = msg.rstrip('.').split(' ')[1]
+        self.protocol.join(channel)
 
-    def process_REVEAL(self, mission, identifier, role, players, spies = None):
-        game = mission.split(' ')[1]
-
-        # ID 2-Random;
-        index, name = identifier.split(' ')[1].split('-')
-        bot = self.constructor(State(), int(index), False)
+    def process_REVEAL(self, reveal, role, players, spies = None):
+        # ROLE Resistance.
+        index = self.channel.split('-')[-1]
+        spy = bool(role.split(' ')[1] == 'Spy')
+        bot = self.constructor(State(), int(index), spy)
         self.bots[self.channel] = bot
-
-        # ROLE Spy.
-        role = role.split(' ')[1]
-        bot.spy = bool(role == 'Spy')
 
         # PLAYERS 1-Deceiver, 2-Random, 3-Hippie;
         participants = []
