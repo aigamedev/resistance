@@ -1,8 +1,8 @@
 # COMPETITION
 # - Run multiple games in parallel in multiple greenlets for speed.
 # - Check current games for players disconnecting and invalidate them.
+# - (DONE) Let the server detect if the bot is already in the private channel.
 # - Have clients detect if the server disconnects or leaves a channel.
-# - Let the server detect if the bot is already in the private channel.
 
 # HUMAN PLAY
 # - Index the players and channels from [1..5] rather than starting at zero.
@@ -172,7 +172,7 @@ class ResistanceCompetitionHandler(CompetitionRunner):
         players = [ProxyBot(bot.lstrip('@'), self.client, "#game-0001") for bot in candidates]
         g = self.play(Game, players)
         result = {True: "Resistance WON!", False: "Spies WON..."}
-        self.client.msg('#resistance', 'PLAYED %s. %s' % (' '.join(candidates), result[g.won]))
+        self.client.msg('#resistOUNance', 'PLAYED %s. %s' % (' '.join(candidates), result[g.won]))
 
     def __call__(self, client, msg):
         if msg.command == '001':
@@ -182,7 +182,13 @@ class ResistanceCompetitionHandler(CompetitionRunner):
             client.send_message(message.Command(msg.params, 'PONG'))
         elif msg.command == '353':
             if msg.params[2] != '#resistance':
-                return
+                # When joining specific bot private channels, see if the bot is
+                # already there waiting and don't require rejoin.
+                waiting = [u.strip('+@') for u in msg.params[3:]]
+                for b in [b for b in self.game.bots if b.name in waiting]:
+                    if b.channel == msg.params[2] and b._join and not b._join.ready():
+                        b._join.set()
+
             self.competitors = [u.strip('+@') for u in msg.params[3:]]
             self.competitors.remove(client.nick)
             # Once we've connected and joined the channel, we'll get a list
