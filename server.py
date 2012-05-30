@@ -2,10 +2,10 @@
 # - Run multiple games in parallel in multiple greenlets for speed.
 # - Check current games for players disconnecting and invalidate them.
 # - (DONE) Let the server detect if the bot is already in the private channel.
-# - Have clients detect if the server disconnects or leaves a channel.
+# - (DONE) Have clients detect if the server disconnects or leaves a channel.
 
 # HUMAN PLAY
-# - Index the players and channels from [1..5] rather than starting at zero.
+# - (DONE) Index players and channels from [1..5] rather than starting at zero.
 # - Simplify most responses to avoid the need for commands altogether.
 # - Parse human input better for SELECT list and the yes/no responses.
 # - Provide a HELP command that provides some contextual explanation.
@@ -89,6 +89,7 @@ class ProxyBot(Bot):
         self._select.set(team)
 
     def onTeamSelected(self, leader, team):
+        self.state.team = team[:]
         self.send("VOTE %s?" % (self.bakeTeam(team)))
         self._vote = AsyncResult()
 
@@ -108,6 +109,7 @@ class ProxyBot(Bot):
             self._sabotage = None
 
     def sabotage(self):
+        assert self._sabotage is not None
         return self._sabotage.get()
 
     def process_SABOTAGED(self, sabotaged):

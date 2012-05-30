@@ -43,7 +43,7 @@ class Game:
         random.shuffle(roles)
 
         # Create Bot instances based on the constructor passed in.
-        self.bots = [p(self.state, i, r) for p, r, i in zip(bots, roles, range(0, len(bots)))]
+        self.bots = [p(self.state, i, r) for p, r, i in zip(bots, roles, range(1, len(bots)+1))]
         
         # Maintain a copy of players that includes minimal data, for passing to other bots.
         self.state.players = [Player(p.name, p.index) for p in self.bots]
@@ -57,7 +57,7 @@ class Game:
         simulate the game until it is complete."""
 
         # Tell the bots who the spies are if they are allowed to know.
-        spies = [self.state.players[p.index] for p in self.bots if p.spy]
+        spies = [self.state.players[p.index-1] for p in self.bots if p.spy]
         for p in self.bots:
             if p.spy:
                 p.onGameRevealed(self.state.players[:], spies[:])
@@ -103,7 +103,7 @@ class Game:
 
         # Step 1) Pick the leader and ask for a selection of players on the team.
         self.state.leader = self.leader.next()
-        l = self.bots[self.state.leader.index]
+        l = self.bots[self.state.leader.index-1]
         for p in self.bots:
             p.onMissionAttempt(self.state.turn, self.state.tries, self.state.leader)
 
@@ -146,7 +146,7 @@ class Game:
         # to go through with the mission or sabotage!
         sabotaged = 0
         for s in selected:
-            p = self.bots[s.index]
+            p = self.bots[s.index-1]
             result = False
             if p.spy:
                 result = p.sabotage()
@@ -159,7 +159,7 @@ class Game:
         # Process the team first to make sure any timing of the result
         # is the same for all player roles, specifically over IRC.
         for s in selected:
-            p = self.bots[s.index]
+            p = self.bots[s.index-1]
             p.onMissionComplete(sabotaged)
         # Now, with delays taken into account, all other results can be
         # passed back safely without divulging Spy/Resistance identities.

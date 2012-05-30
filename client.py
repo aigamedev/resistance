@@ -11,7 +11,9 @@ class ResistanceClient(object):
         self.protocol = protocol
         self.constructor = constructor
         self.bots = {}
+
         self.channel = None
+        self.sender = None
 
     def getBot(self):
         return self.bots[self.channel]
@@ -28,6 +30,7 @@ class ResistanceClient(object):
         index = self.channel.split('-')[-1]
         spy = bool(role.split(' ')[1] == 'Spy')
         bot = self.constructor(State(), int(index), spy)
+        bot.recipient = self.sender
         self.bots[self.channel] = bot
 
         # PLAYERS 1-Deceiver, 2-Random, 3-Hippie;
@@ -97,6 +100,7 @@ class ResistanceClient(object):
 
         bot.onGameComplete(w, s)
         self.protocol.part(self.channel)
+        del self.bots[self.channel]
 
     def makeTeam(self, team):
         return [self.makePlayer(t.strip('., ')) for t in team.split(' ')[1:]]
@@ -105,17 +109,26 @@ class ResistanceClient(object):
         index, name = identifier.split('-')
         return Player(name, int(index))
 
-    def message(self, channel, msg):
+    def message(self, sender, channel, msg):
         cmd = msg.split(' ')[0].rstrip('?!.')
         if not hasattr(self, 'process_'+cmd):
             return
 
         process = getattr(self, 'process_'+cmd)
         args = [i.strip(' ') for i in msg.rstrip('.?!').split(';')]
+        self.sender = sender
         self.channel = channel
         process(*args)
         self.channel = None
+        self.sender = None
 
+    def disconnect(self, user, channel = None):
+        for ch, bot in list(self.bots.items()):
+            if user != bot.recipient:
+                continue
+            if not channel or ch == channel:
+                self.protocol.part(ch)
+                del self.bots[ch]
 
 class ResistanceProtocol(irc.IRCClient):
            
@@ -136,8 +149,14 @@ class ResistanceProtocol(irc.IRCClient):
 
     def privmsg(self, user, channel, msg):
         u = user.split('!')[0]
-        self.client.message(channel, msg)
+        self.client.message(u, channel, msg)
+
+    def userLeft(self, user, channel):
+        self.client.disconnect(user, channel)
     
+    def userQuit(self, user, reason):
+        self.client.disconnect(user)
+
 
 class ResistanceFactory(protocol.ClientFactory):
 
