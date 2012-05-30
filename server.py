@@ -1,14 +1,18 @@
 # COMPETITION
-# - Run multiple games in parallel in multiple greenlets for speed.
+# - (DONE) Run multiple games in parallel in multiple greenlets for speed.
 # - Check current games for players disconnecting and invalidate them.
+# - Allow specifying a number of games to run, and their permutations.
+# - Performance checks for running games to try to improve simulations.
+# - For speed, use a constant set of bot channels rather than game channels.
 # - (DONE) Let the server detect if the bot is already in the private channel.
 # - (DONE) Have clients detect if the server disconnects or leaves a channel.
 
 # HUMAN PLAY
-# - (DONE) Index players and channels from [1..5] rather than starting at zero.
-# - Simplify most responses to avoid the need for commands altogether.
-# - Parse human input better for SELECT list and the yes/no responses.
+# - Check for valid players when requesting specific games.
+# - (DONE) Simplify most responses to avoid the need for commands altogether.
+# - (DONE) Parse human input better for SELECT list and the yes/no responses.
 # - Provide a HELP command that provides some contextual explanation.
+# - (DONE) Index players and channels from [1..5] rather than starting at zero.
 # - (DONE) Require a sabotage response from humans, always to make it fair.
 
 import sys
@@ -24,14 +28,19 @@ from player import Player, Bot
 from game import Game
 
 
-def YesOrNo(b):
+def showYesOrNo(b):
     result = {True: 'Yes', False: 'No'}
     return result[b]
 
-
-def makePlayer(identifier):
-    index, name = identifier.split('-')
-    return Player(name, int(index))
+def parseYesOrNo(text):
+    text = text.lower()
+    result = None
+    for t in ['yes', 'true']:
+        if t in text: result = True
+    for t in ['no', 'false']:
+        if t in text: result = False
+    assert result is not None, "Can't parse the response."
+    return result 
 
 
 class ProxyBot(Bot):
@@ -40,6 +49,7 @@ class ProxyBot(Bot):
         self.name = name
         self.client = client
 
+        self.expecting = None
         self._vote = None
         self._select = None
         self._sabotage = None
@@ -64,6 +74,23 @@ class ProxyBot(Bot):
     def bakeTeam(self, team):
         return ', '.join([str(p) for p in team])
 
+    def makeTeam(self, msg):
+        for s in '\t,.!;?': msg = msg.replace(s, ' ')
+        names = [n for n in msg.split(' ') if n]
+        players = []
+        for n in names:
+            players.append(self.makePlayer(n))
+        print names, players
+        return players
+
+    def makePlayer(self, name):
+        for p in self.state.players:
+            if str(p.index) in name:
+                return p
+            if name in p.name:
+                return p
+        assert False, "Can't find player for input name '%s'." % (name)
+
     def send(self, msg):
         self.client.msg(self.channel, msg)
 
@@ -82,29 +109,38 @@ class ProxyBot(Bot):
     def select(self, players, count):
         self.send('SELECT %i!' % (count))
         self._select = AsyncResult()
+        self.expecting = self.process_SELECTED
         return self._select.get()
 
     def process_SELECTED(self, msg):
-        team = [makePlayer(p.strip(' ,.')) for p in msg[2:]]
+        if 'select' in msg[1].lower():
+            msg = ' '.join(msg[2:])
+        else:
+            msg = ' '.join(msg[1:])
+        team = self.makeTeam(msg)
         self._select.set(team)
 
     def onTeamSelected(self, leader, team):
         self.state.team = team[:]
         self.send("VOTE %s?" % (self.bakeTeam(team)))
         self._vote = AsyncResult()
+        self.expecting = self.process_VOTED
 
     def vote(self, team):
         return self._vote.get()
 
     def process_VOTED(self, msg):
-        self._vote.set(msg[2] == 'Yes.')
+        result = parseYesOrNo(' '.join(msg[1:]))
+        self._vote.set(result)
 
     def onVoteComplete(self, votes):
-        self.send("VOTES %s." % (', '.join([YesOrNo(v) for v in votes])))
+        self.send("VOTES %s." % (', '.join([showYesOrNo(v) for v in votes])))
         
-        if self in self.state.team:
+        v = [b for b in votes if b]
+        if self in self.state.team and len(v) > 2:
             self.send("SABOTAGE?")
             self._sabotage = AsyncResult()
+            self.expecting = self.process_SABOTAGED
         else:
             self._sabotage = None
 
@@ -112,8 +148,9 @@ class ProxyBot(Bot):
         assert self._sabotage is not None
         return self._sabotage.get()
 
-    def process_SABOTAGED(self, sabotaged):
-        self._sabotage.set(sabotaged[2] == 'Yes.')
+    def process_SABOTAGED(self, msg):
+        result = parseYesOrNo(' '.join(msg[1:]))
+        self._sabotage.set(result)
 
     def onMissionComplete(self, sabotaged):
         # Force synchronization in case sabotage() is not called due to the bot
@@ -124,9 +161,10 @@ class ProxyBot(Bot):
             assert not s, "Expecting sabotage() to be False if it was handled automatically."
 
         self.send("SABOTAGES %i." % (sabotaged))
+        self.expecting = None
 
     def onGameComplete(self, win, spies):
-        self.send("RESULT %s; SPIES %s." % (YesOrNo(win), self.bakeTeam(spies)))
+        self.send("RESULT %s; SPIES %s." % (showYesOrNo(win), self.bakeTeam(spies)))
 
         self.client.send_message(message.Command(self.game, 'PART'))
         self.client.send_message(message.Command(self.channel, 'PART'))
@@ -169,15 +207,21 @@ class ResistanceCompetitionHandler(CompetitionRunner):
         
         if len(candidates) > 5:
             candidates = random.sample(candidates, 5)
+        else:
+            random.shuffle(candidates)
 
-        self.client.msg('#resistance', 'PLAYING %s!' % (' '.join(candidates)))
-        players = [ProxyBot(bot.lstrip('@'), self.client, "#game-0001") for bot in candidates]
+        channel = "#game-%04i" % (self.count)
+        self.client.msg('#resistance', 'GAME %s PLAYING %s!' % (channel, ' '.join(candidates)))
+        players = [ProxyBot(bot.lstrip('@'), self.client, channel) for bot in candidates]
+        self.count += 1
+
         g = self.play(Game, players)
         result = {True: "Resistance WON!", False: "Spies WON..."}
-        self.client.msg('#resistOUNance', 'PLAYED %s. %s' % (' '.join(candidates), result[g.won]))
+        self.client.msg('#resistance', 'GAME %s PLAYED %s. %s' % (channel, ' '.join(candidates), result[g.won]))
 
     def __call__(self, client, msg):
         if msg.command == '001':
+            self.count = 1
             self.client = client
             client.send_message(message.Join('#resistance'))
         elif msg.command == 'PING':
@@ -187,9 +231,10 @@ class ResistanceCompetitionHandler(CompetitionRunner):
                 # When joining specific bot private channels, see if the bot is
                 # already there waiting and don't require rejoin.
                 waiting = [u.strip('+@') for u in msg.params[3:]]
-                for b in [b for b in self.game.bots if b.name in waiting]:
-                    if b.channel == msg.params[2] and b._join and not b._join.ready():
-                        b._join.set()
+                for g in self.games:
+                    for b in [b for b in g.bots if b.name in waiting]:
+                        if b.channel == msg.params[2] and b._join and not b._join.ready():
+                            b._join.set()
 
             self.competitors = [u.strip('+@') for u in msg.params[3:]]
             self.competitors.remove(client.nick)
@@ -203,10 +248,11 @@ class ResistanceCompetitionHandler(CompetitionRunner):
                 return
             channel = msg.params[0].lstrip(':')
             if channel != '#resistance':
-                for b in self.game.bots:
-                    if b.channel == channel:
-                        b._join.set()
-                        return
+                for g in self.games:
+                    for b in g.bots:
+                        if b.channel == channel:
+                            b._join.set()
+                            return
                 assert False, "Not waiting for a player to join this channel."
             else:
                 self.competitors.append(user)
@@ -223,13 +269,16 @@ class ResistanceCompetitionHandler(CompetitionRunner):
                 if msg.params[1] == 'PLAY':
                     self.run(' '.join(msg.params[2:]))
                 return
-            for bot in self.game.bots:
-                if bot.channel != channel:
-                    continue
-                name = 'process_'+msg.params[1]
-                if hasattr(bot, name):
-                    process = getattr(bot, name)
-                    process(msg.params)
+            for g in self.games:
+                for bot in g.bots:
+                    if bot.channel != channel:
+                        continue
+                    name = 'process_'+msg.params[1].upper()
+                    if hasattr(bot, name):
+                        process = getattr(bot, name)
+                        process(msg.params)
+                    elif bot.expecting:
+                        bot.expecting(msg.params)
  
 
 if __name__ == '__main__':

@@ -53,7 +53,7 @@ class CompetitionRunner(object):
     def __init__(self, competitors, rounds = 10000):
         self.competitors = competitors
         self.rounds = rounds
-        self.game = None
+        self.games = [] 
 
     def pickPlayersForRound(self):
         # Only one instance of each bot per game, assumes more than five.
@@ -77,7 +77,8 @@ class CompetitionRunner(object):
                 s.resWins.sample(int(not b.spy and g.won))
 
     def play(self, GameType, players):
-        g = self.game = GameType(players)
+        g = GameType(players)
+        self.games.append(g)
         g.run()
         return g
 
