@@ -1,8 +1,32 @@
+import logging
 from twisted.words.protocols import irc
 from twisted.internet import reactor, protocol
 
 from player import Player
 from game import State
+
+
+class ResistanceLogger(logging.Handler):
+
+    def __init__(self, protocol):
+        logging.Handler.__init__(self)
+        self.protocol = protocol
+        self.channel = None
+
+    def flush(self):
+        pass
+
+    def emit(self, record):
+        if self.channel is None:
+            return
+
+        try:
+            msg = self.format(record)
+            self.protocol.msg(self.channel, 'COMMENT %s' % (msg))
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except:
+            self.handleError(record)
 
 
 class ResistanceClient(object):
@@ -13,6 +37,7 @@ class ResistanceClient(object):
         self.bots = {}
 
         self.channel = None
+        self.logger = None
         self.sender = None
 
     def getBot(self):
@@ -30,6 +55,10 @@ class ResistanceClient(object):
         index = self.channel.split('-')[-1]
         spy = bool(role.split(' ')[1] == 'Spy')
         bot = self.constructor(State(), int(index), spy)
+        if self.logger is None:
+            self.logger = ResistanceLogger(self.protocol)
+            bot.log.addHandler(self.logger)
+
         bot.recipient = self.sender
         self.bots[self.channel] = bot
 
@@ -118,7 +147,13 @@ class ResistanceClient(object):
         args = [i.strip(' ') for i in msg.rstrip('.?!').split(';')]
         self.sender = sender
         self.channel = channel
+        if self.logger is not None:
+            self.logger.channel = channel
+
         process(*args)
+
+        if self.logger is not None:
+            self.logger.channel = None
         self.channel = None
         self.sender = None
 
@@ -129,6 +164,7 @@ class ResistanceClient(object):
             if not channel or ch == channel:
                 self.protocol.part(ch)
                 del self.bots[ch]
+
 
 class ResistanceProtocol(irc.IRCClient):
            

@@ -9,10 +9,10 @@
 
 # HUMAN PLAY
 # - Have bots respond to questions about suspicion levels of players.
-# - Let bots output debug explanations for each selection & vote via self.log.
 # - Use custom name channels for bots acting as proxy for real players.
 # - Handle renaming of clients so the player list is up-to-date.
 # - Provide a HELP command that provides some contextual explanation.
+# - (DONE) Let bots output debug explanations for select & vote via self.log.
 # - (DONE) In mixed human/bot games, allow moderator to type result of mission.
 # - (DONE) Check for valid players when requesting specific games.
 # - (DONE) Simplify most responses to avoid the need for commands altogether.
@@ -23,6 +23,7 @@
 import sys
 import time
 import random
+import logging
 import itertools
 
 from gevent import Greenlet
@@ -358,7 +359,9 @@ class ResistanceCompetitionHandler(CompetitionRunner):
                     if bot.channel != channel:
                         continue
                     name = 'process_'+msg.params[1].upper()
-                    if hasattr(bot, name):
+                    if name == 'process_COMMENT':
+                        pass
+                    elif hasattr(bot, name):
                         process = getattr(bot, name)
                         process(msg.params)
                     elif bot.expecting:

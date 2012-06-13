@@ -7,12 +7,15 @@ class Paranoid(Bot):
     """An AI bot that tends to vote everything down!"""
 
     def select(self, players, count):
+        self.log.info("Picking myself and others I don't trust.")
         return [self] + random.sample(self.others(), count - 1)
 
     def vote(self, team): 
+        self.log.info("I only vote for my own missions.")
         return bool(self == self.game.leader)
 
     def sabotage(self):
+        self.log.info("I always sabotage when I'm a spy.")
         return True 
 
 
@@ -20,12 +23,15 @@ class Hippie(Bot):
     """An AI bot that's OK with everything!"""
 
     def select(self, players, count):
+        self.log.info("Picking some cool dudes to go with me!")
         return [self] + random.sample(self.others(), count - 1)
 
     def vote(self, team): 
+        self.log.info("Everything is OK with me, man.")
         return True
 
     def sabotage(self):
+        self.log.info("Sabotaging is what spy dudes do, right?")
         return True
 
 
@@ -34,12 +40,15 @@ class RandomBot(Bot):
     understand the rules very well!"""
 
     def select(self, players, count):
+        self.log.info("A completely random selection.")
         return random.sample(players, count)
 
     def vote(self, team): 
+        self.log.info("A completely random vote.")
         return random.choice([True, False])
 
     def sabotage(self):
+        self.log.info("A completely random sabotage.")
         return random.choice([True, False])
 
 
