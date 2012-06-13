@@ -16,6 +16,7 @@ class State:
         self.team = None
         self.players = None
     
+    @property
     def losses(self):
         """How many games the resistance lost, or the spies won."""
         return self.turn - self.wins - 1
@@ -95,7 +96,7 @@ class Game:
 
     @property
     def lost(self):
-        return self.state.losses() >= self.NUM_LOSSES
+        return self.state.losses >= self.NUM_LOSSES
 
     def step(self):
         """Single step/turn of the resistance game, which can fail if the voting

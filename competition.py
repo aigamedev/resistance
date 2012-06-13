@@ -76,8 +76,9 @@ class CompetitionRunner(object):
                 s.spyWins.sample(int(b.spy and not g.won))
                 s.resWins.sample(int(not b.spy and g.won))
 
-    def play(self, GameType, players):
+    def play(self, GameType, players, channel = None):
         g = GameType(players)
+        g.channel = channel
         self.games.append(g)
         g.run()
         return g

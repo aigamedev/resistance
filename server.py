@@ -1,24 +1,33 @@
 # COMPETITION
-# - (DONE) Run multiple games in parallel in multiple greenlets for speed.
 # - Check current games for players disconnecting and invalidate them.
-# - Allow specifying a number of games to run, and their permutations.
-# - Performance checks for running games to try to improve simulations.
 # - For speed, use a constant set of bot channels rather than game channels.
+# - (DONE) Performance checks for running games to try to improve simulations.
+# - (DONE) Allow specifying a number of games to run, and their permutations.
+# - (DONE) Run multiple games in parallel in multiple greenlets for speed.
 # - (DONE) Let the server detect if the bot is already in the private channel.
 # - (DONE) Have clients detect if the server disconnects or leaves a channel.
 
 # HUMAN PLAY
-# - Check for valid players when requesting specific games.
+# - Have bots respond to questions about suspicion levels of players.
+# - Let bots output debug explanations for each selection & vote via self.log.
+# - Use custom name channels for bots acting as proxy for real players.
+# - Handle renaming of clients so the player list is up-to-date.
+# - Provide a HELP command that provides some contextual explanation.
+# - (DONE) In mixed human/bot games, allow moderator to type result of mission.
+# - (DONE) Check for valid players when requesting specific games.
 # - (DONE) Simplify most responses to avoid the need for commands altogether.
 # - (DONE) Parse human input better for SELECT list and the yes/no responses.
-# - Provide a HELP command that provides some contextual explanation.
 # - (DONE) Index players and channels from [1..5] rather than starting at zero.
 # - (DONE) Require a sabotage response from humans, always to make it fair.
 
 import sys
+import time
 import random
+import itertools
 
-import gevent
+from gevent import Greenlet
+from gevent import queue
+from gevent import pool 
 from gevent.event import Event, AsyncResult
 from geventirc import Client
 from geventirc import message
@@ -54,11 +63,12 @@ class ProxyBot(Bot):
         self._select = None
         self._sabotage = None
         self._join = None
+        self._part = None
         self.game = game 
 
     def __call__(self, game, index, spy):
         """This function pretends to be a Builder, but in fact just
-        configures this object in place as it's easier."""
+        configures this object in place as it's easier to setup and maintain."""
         Player.__init__(self, self.name, index)
         self.state = game
         self.spy = spy
@@ -80,7 +90,6 @@ class ProxyBot(Bot):
         players = []
         for n in names:
             players.append(self.makePlayer(n))
-        print names, players
         return players
 
     def makePlayer(self, name):
@@ -101,6 +110,7 @@ class ProxyBot(Bot):
             s = "; SPIES " + self.bakeTeam(spies)
 
         self._join.wait()
+        self._join = None
         self.send('REVEAL %s; ROLE %s; PLAYERS %s%s.' % (self.game, roles[self.spy], self.bakeTeam(players), s))
 
     def onMissionAttempt(self, mission, tries, leader):
@@ -167,6 +177,8 @@ class ProxyBot(Bot):
         self.send("RESULT %s; SPIES %s." % (showYesOrNo(win), self.bakeTeam(spies)))
 
         self.client.send_message(message.Command(self.game, 'PART'))
+        self._part = Event() 
+        self._part.wait()
         self.client.send_message(message.Command(self.channel, 'PART'))
 
 
@@ -195,8 +207,21 @@ class ResistanceCompetitionHandler(CompetitionRunner):
         self.client.stop()
 
     def run(self, game):
+        t = time.time()
+        GAMES = 1
+
         for s in '\t,.!;?': game = game.replace(s, ' ')
         candidates = [c for c in game.split(' ') if c]
+        if candidates[0].isdigit():
+            GAMES = int(candidates[0])
+            candidates = candidates[1:]
+        
+        missing = [c for c in candidates if c.strip('@') not in self.competitors]
+        if len(missing) != 0:
+            self.client.msg('#resistance', 'ERROR. %s was not found in %s.' % (' '.join(missing), self.competitors))
+            assert len(missing) == 0, "Not all specified players were found."
+    
+        self.client.msg('#resistance', 'PLAYING %s!' % (' '.join(candidates)))
 
         # Put an '@' in front of humans when specifying the players.
         bots = [c for c in candidates if '@' not in c]
@@ -207,23 +232,57 @@ class ResistanceCompetitionHandler(CompetitionRunner):
         
         if len(candidates) > 5:
             candidates = random.sample(candidates, 5)
+        # else:
+        #    random.shuffle(candidates)
+
+        results = queue.Queue()
+        for i in range(0, GAMES):
+            self.upcoming.put((candidates, results))
+        
+        wins = 0
+        for i in range(0, GAMES):
+            wins += int(results.get())
+
+        seconds = (time.time() - t)
+        if GAMES > 1:
+            self.client.msg('#resistance', 'PLAYED %i games in %0.2fs, at %0.2f GPS.' % (GAMES, seconds, float(GAMES)/seconds))
         else:
-            random.shuffle(candidates)
+            self.client.msg('#resistance', 'PLAYED game in %0.2fs.' % (seconds))
 
-        channel = "#game-%04i" % (self.count)
-        self.client.msg('#resistance', 'GAME %s PLAYING %s!' % (channel, ' '.join(candidates)))
+    def _play(self, count, candidates, result):
+        channel = "#game-%04i" % (count)
+        # self.client.msg('#resistance', 'GAME %s PLAYING %s!' % (channel, ' '.join(candidates)))
         players = [ProxyBot(bot.lstrip('@'), self.client, channel) for bot in candidates]
-        self.count += 1
+        g = self.play(Game, players, channel)
+        text = {True: "Resistance WON!", False: "Spies WON..."}
+        # self.client.msg('#resistance', 'GAME %s PLAYED %s. %s' % (channel, ' '.join(candidates), text[g.won]))
+        result.put(g.won)
+        self.games.remove(g)
 
-        g = self.play(Game, players)
-        result = {True: "Resistance WON!", False: "Spies WON..."}
-        self.client.msg('#resistance', 'GAME %s PLAYED %s. %s' % (channel, ' '.join(candidates), result[g.won]))
+        self.channels.put(count)
+    
+    def _loop(self):
+        # Allocate a pool of 50 channels for playing games.
+        self.channels = queue.Queue()
+        for i in range(1,101):
+            self.channels.put(i)
+
+        self.upcoming = queue.Queue()
+        while True:
+            candidates, result = self.upcoming.get()
+            index = self.channels.get()
+            Greenlet.spawn(self._play, index, candidates, result)
+
+        # 3) Wait for all greenlets to finish.
+        # p = pool.Group()
+        # p.add(g)
+        # p.join()
 
     def __call__(self, client, msg):
         if msg.command == '001':
-            self.count = 1
             self.client = client
             client.send_message(message.Join('#resistance'))
+            Greenlet.spawn(self._loop)
         elif msg.command == 'PING':
             client.send_message(message.Command(msg.params, 'PONG'))
         elif msg.command == '353':
@@ -235,6 +294,7 @@ class ResistanceCompetitionHandler(CompetitionRunner):
                     for b in [b for b in g.bots if b.name in waiting]:
                         if b.channel == msg.params[2] and b._join and not b._join.ready():
                             b._join.set()
+                return
 
             self.competitors = [u.strip('+@') for u in msg.params[3:]]
             self.competitors.remove(client.nick)
@@ -250,7 +310,7 @@ class ResistanceCompetitionHandler(CompetitionRunner):
             if channel != '#resistance':
                 for g in self.games:
                     for b in g.bots:
-                        if b.channel == channel:
+                        if b.channel == channel and b._join:
                             b._join.set()
                             return
                 assert False, "Not waiting for a player to join this channel."
@@ -263,6 +323,15 @@ class ResistanceCompetitionHandler(CompetitionRunner):
             channel = msg.params[0].lstrip(':')
             if channel == '#resistance':
                 self.competitors.remove(user)
+                return
+            else:
+                for g in self.games:
+                    for b in g.bots:
+                        if b.channel == channel and b._part:
+                            # Only leave the channel once the other has left, to avoid
+                            # synchronization problems when batch processing games.
+                            b._part.set()
+                            return
         elif msg.command == 'PRIVMSG':
             channel = msg.params[0].lstrip(':')
             if channel == '#resistance':
@@ -270,6 +339,21 @@ class ResistanceCompetitionHandler(CompetitionRunner):
                     self.run(' '.join(msg.params[2:]))
                 return
             for g in self.games:
+    
+                # First check if this is a report message about sabotages in
+                # games played between humans alone or with bots.
+                if g.channel == channel and msg.params[1].upper() == 'SABOTAGES':
+                    remaining = int(msg.params[2].strip('.,!;')) 
+                    for bot in g.bots:
+                        if bot._sabotage is not None:
+                            bot.send("SABOTAGES %i" % (remaining))
+                            if bot.spy:
+                                bot._sabotage.set(bool(remaining > 0))
+                                remaining -= 1
+                            else:
+                                bot._sabotage.set(False)
+
+                # Now check if a bot is expecting a message, and pass it along.
                 for bot in g.bots:
                     if bot.channel != channel:
                         continue
@@ -287,7 +371,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         rounds = int(sys.argv[1])
     
-    irc = Client('localhost', 'aigamedev',  port=6667)
+    irc = Client('localhost', 'aigamedev',  port=6667, local_hostname='caribou')
     h = ResistanceCompetitionHandler([], rounds)
     irc.add_handler(h)
     irc.start()
