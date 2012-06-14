@@ -124,9 +124,20 @@ if __name__ == '__main__':
     competitors = []
     for filename, classname in [s.split('.') for s in sys.argv[2:]]:
         module = importlib.import_module(filename)
-        competitors.append(getattr(module, classname))
+        if classname == 'ALL':
+            for b in dir(module):
+                if b.startswith('__') or b == 'Bot': continue
+                cls = getattr(module, b)
+                if hasattr(cls, 'sabotage'):
+                    competitors.append(cls)
+        else:    
+            competitors.append(getattr(module, classname))
 
     runner = CompetitionRunner(competitors, int(sys.argv[1]))
-    runner.main()
-    runner.show()
+    try:
+        runner.main()
+    except (KeyboardInterrupt, SystemExit):
+        pass
+    finally:
+        runner.show()
 
