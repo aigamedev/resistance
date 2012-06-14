@@ -68,13 +68,14 @@ class CompetitionRunner(object):
             elif i % 50 == 0: print >>sys.stderr, '.',
 
             g = self.play(CompetitionRound, self.pickPlayersForRound())
-
             for b in g.bots:
                 statistics.setdefault(b.name, CompetitionStatistics())
                 s = statistics.get(b.name)
 
                 s.spyWins.sample(int(b.spy and not g.won))
                 s.resWins.sample(int(not b.spy and g.won))
+
+            self.games.remove(g)
 
     def play(self, GameType, players, channel = None):
         g = GameType(players)
