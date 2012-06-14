@@ -19,7 +19,10 @@ class Variable(object):
 
     def __repr__(self):
         if self.samples:
-            return "{:5.2f}%".format(100.0 * float(self.total) / float(self.samples))
+            value = 100.0 * float(self.total) / float(self.samples)
+            if value == 100.0:
+                return "100.0%"
+            return "{:5.2f}%".format(value)
         else:
             return "   N/A"
 

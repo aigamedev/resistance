@@ -14,10 +14,12 @@ class CompetitionStatistics:
         self.spyWins = Variable()
         self.votesRes = Variable()
         self.votesSpy = Variable()
+        self.spyVoted = Variable()
+        self.spySelected = Variable()
         self.selections = Variable()
 
     def total(self):
-        return Variable(self.resWins.total + self.spyWins.total, self.resWins.samples)
+        return Variable(self.resWins.total + self.spyWins.total, self.resWins.samples + self.spyWins.total)
 
 
 class CompetitionRound(Game):
@@ -37,6 +39,12 @@ class CompetitionRound(Game):
         # For missions with spies, we expect down vote.
         else:
             s.votesSpy.sample(int(not vote))
+
+        # Spies on the mission hope to be not detected.
+        for spy in spies:
+            statistics.setdefault(spy.name, CompetitionStatistics())
+            s = statistics[spy.name]
+            s.spyVoted.sample(int(vote))
    
     def onPlayerSelected(self, player, team):
         global statistics
@@ -46,6 +54,12 @@ class CompetitionRound(Game):
         spies = [t for t in team if t.spy]
         statistics.setdefault(player.name, CompetitionStatistics())
         statistics[player.name].selections.sample(int(len(spies) == 0))
+
+        for bot in self.bots:
+            statistics.setdefault(bot.name, CompetitionStatistics())
+            s = statistics[bot.name]
+            if bot.spy:
+                s.spySelected.sample(int(bot in team))
 
 
 class CompetitionRunner(object):
@@ -87,9 +101,9 @@ class CompetitionRunner(object):
         return g
 
     def show(self):
-        print "\nSPIES"
+        print "\nSPIES\t\t\t\t(voted,\t\tselected)"
         for s in sorted(statistics.items(), key = lambda x: -x[1].spyWins.estimate()):
-            print " ", s[0], "\t", s[1].spyWins
+            print " ", s[0], "\t", s[1].spyWins, "\t\t", s[1].spyVoted, "\t\t", s[1].spySelected
 
         print "\nRESISTANCE\t\t\t(vote,\t\tselect)" 
         for s in sorted(statistics.items(), key = lambda x: -x[1].resWins.estimate()):
