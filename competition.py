@@ -72,8 +72,10 @@ class CompetitionRunner(object):
                 statistics.setdefault(b.name, CompetitionStatistics())
                 s = statistics.get(b.name)
 
-                s.spyWins.sample(int(b.spy and not g.won))
-                s.resWins.sample(int(not b.spy and g.won))
+                if b.spy:
+                    s.spyWins.sample(int(not g.won))
+                else:
+                    s.resWins.sample(int(g.won))
 
             self.games.remove(g)
 
