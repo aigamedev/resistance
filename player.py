@@ -91,7 +91,7 @@ class Bot(Player):
 
     def vote(self, team):
         """Given a selected team, decide whether the mission should proceed.
-        @param team      List of players with index and .
+        @param team      List of players with index and name. 
         @return bool     Answer Yes/No.
         """ 
         raise NotImplemented

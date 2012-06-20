@@ -10,7 +10,6 @@
 # HUMAN PLAY
 # - Have bots respond to questions about suspicion levels of players.
 # - Use custom name channels for bots acting as proxy for real players.
-# - Handle renaming of clients so the player list is up-to-date.
 # - Provide a HELP command that provides some contextual explanation.
 # - (DONE) Let bots output debug explanations for select & vote via self.log.
 # - (DONE) In mixed human/bot games, allow moderator to type result of mission.
@@ -19,6 +18,7 @@
 # - (DONE) Parse human input better for SELECT list and the yes/no responses.
 # - (DONE) Index players and channels from [1..5] rather than starting at zero.
 # - (DONE) Require a sabotage response from humans, always to make it fair.
+# - Handle renaming of clients so the player list is up-to-date.
 
 import sys
 import time
@@ -49,7 +49,6 @@ def parseYesOrNo(text):
         if t in text: result = True
     for t in ['no', 'false']:
         if t in text: result = False
-    assert result is not None, "Can't parse the response."
     return result 
 
 
@@ -142,7 +141,8 @@ class ProxyBot(Bot):
 
     def process_VOTED(self, msg):
         result = parseYesOrNo(' '.join(msg[1:]))
-        self._vote.set(result)
+        if result is not None:
+            self._vote.set(result)
 
     def onVoteComplete(self, votes):
         self.send("VOTES %s." % (', '.join([showYesOrNo(v) for v in votes])))
@@ -161,7 +161,8 @@ class ProxyBot(Bot):
 
     def process_SABOTAGED(self, msg):
         result = parseYesOrNo(' '.join(msg[1:]))
-        self._sabotage.set(result)
+        if result is not None:
+            self._sabotage.set(result)
 
     def onMissionComplete(self, sabotaged):
         # Force synchronization in case sabotage() is not called due to the bot

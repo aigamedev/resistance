@@ -131,6 +131,11 @@ class ResistanceClient(object):
         self.protocol.part(self.channel)
         del self.bots[self.channel]
 
+    def process_QUERY(self, *args):
+        bot = self.getBot()
+        if 'SELECT' in args[0].upper():
+            self.reply("COMMENT %s" % (bot.select(bot.game.players, 3)))
+
     def makeTeam(self, team):
         return [self.makePlayer(t.strip('., ')) for t in team.split(' ')[1:]]
 
