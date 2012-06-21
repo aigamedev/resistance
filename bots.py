@@ -103,3 +103,32 @@ class RuleFollower(Bot):
     def sabotage(self):
         return True
 
+
+class Jammer(Bot):
+    """An AI bot that plays simply as Resistance, but as a Spy plays against
+    the common wisdom for synchronizing sabotages."""
+
+    def onGameRevealed(self, players, spies):
+        self.spies = spies
+
+    def select(self, players, count):
+        self.log.info("A mostly random selection that includes myself.")
+        return random.sample(self.others(), count)
+
+    def vote(self, team): 
+        return True
+
+    def sabotage(self):
+        spies = [s for s in self.game.team if s in self.spies]
+        if len(spies) > 1:
+            if self == self.game.leader:
+                self.log.info("Not coordinating not sabotaging because I'm leader.")
+                return False 
+            if self.game.leader in spies:
+                self.log.info("Not coordinating and sabotaging despite the other spy being leader.")
+                return True
+            spies.remove(self)
+            self.log.info("Coordinating according to the position around the table...")
+            return self.index > spies[0].index
+        return True
+
