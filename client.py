@@ -119,6 +119,10 @@ class ResistanceClient(object):
     def process_SABOTAGES(self, sabotages):
         bot = self.getBot()
         sabotaged = int(sabotages.split(' ')[1])
+        if sabotaged == 0:
+            self.state.wins += 1
+        else:
+            self.state.losses += 1
         bot.onMissionComplete(sabotaged)
 
     def process_RESULT(self, result, spies):

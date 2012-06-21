@@ -12,14 +12,10 @@ class State:
         self.turn = 1 
         self.tries = 1
         self.wins = 0
+        self.losses = 0
         self.leader = None
         self.team = None
         self.players = None
-    
-    @property
-    def losses(self):
-        """How many games the resistance lost, or the spies won."""
-        return self.turn - self.wins - 1
 
 
 class Game:
@@ -155,6 +151,8 @@ class Game:
 
         if sabotaged == 0:
             self.state.wins += 1
+        else:
+            self.state.losses += 1
             
         # Step 5) Pass back the results of the mission to the bots.
         # Process the team first to make sure any timing of the result
