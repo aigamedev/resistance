@@ -115,7 +115,7 @@ class Game:
         # Make an internal callback, e.g. to track statistics about selection.
         self.onPlayerSelected(l, [b for b in self.bots if b in selected])
         # Copy the list to make sure no internal data is leaked to the other bots!
-        selected = [Player(s.name, s.index) for s in selected]        
+        selected = [Player(s.name, s.index) for s in selected]
         self.state.team = selected
         for p in self.bots:
             p.onTeamSelected(self.state.leader, selected)

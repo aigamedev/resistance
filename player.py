@@ -141,9 +141,12 @@ class Bot(Player):
 
         self.log = logging.getLogger(self.name)
         if not self.log.handlers:
-            output = logging.FileHandler(filename='logs/'+self.name+'.log')
-            self.log.addHandler(output)
-            self.log.setLevel(logging.DEBUG)
+            try:
+                output = logging.FileHandler(filename='logs/'+self.name+'.log')
+                self.log.addHandler(output)
+                self.log.setLevel(logging.DEBUG)
+            except IOError:
+                pass
 
     def __repr__(self):
         """Built-in function to support pretty-printing."""

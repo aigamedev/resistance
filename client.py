@@ -58,6 +58,7 @@ class ResistanceClient(object):
         if self.logger is None:
             self.logger = ResistanceLogger(self.protocol)
             bot.log.addHandler(self.logger)
+            bot.log.setLevel(logging.DEBUG)
 
         bot.recipient = self.sender
         self.bots[self.channel] = bot
@@ -120,9 +121,9 @@ class ResistanceClient(object):
         bot = self.getBot()
         sabotaged = int(sabotages.split(' ')[1])
         if sabotaged == 0:
-            self.state.wins += 1
+            bot.game.wins += 1
         else:
-            self.state.losses += 1
+            bot.game.losses += 1
         bot.onMissionComplete(sabotaged)
 
     def process_RESULT(self, result, spies):
@@ -138,7 +139,9 @@ class ResistanceClient(object):
     def process_QUERY(self, *args):
         bot = self.getBot()
         if 'SELECT' in args[0].upper():
-            self.reply("COMMENT %s" % (bot.select(bot.game.players, 3)))
+            selection = bot.select(bot.game.players, 3)
+            players = [Player(s.name, s.index) for s in selection]
+            self.reply("QUERY %s" % (players))
 
     def makeTeam(self, team):
         return [self.makePlayer(t.strip('., ')) for t in team.split(' ')[1:]]
