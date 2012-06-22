@@ -48,6 +48,9 @@ class Game:
         # Configuration for the game itself.
         self.participants = [2, 3, 2, 3, 3]
         self.leader = itertools.cycle(self.state.players) 
+        # Random starting leader!
+        for i in range(random.randint(0, 4)):
+            self.leader.next()
 
     def run(self):
         """Main entry point for the resistance game.  Once initialized call this to 
