@@ -112,8 +112,11 @@ class Jammer(Bot):
         self.spies = spies
 
     def select(self, players, count):
-        self.log.info("A mostly random selection that includes myself.")
-        return random.sample(self.others(), count)
+        self.log.info("Picking the other spy to trick them!")
+        if not self.spies:
+            return random.sample(self.game.players, count)
+        else: 
+            return self.spies + random.sample(set(self.game.players) - set(self.spies), count-2)
 
     def vote(self, team): 
         return True

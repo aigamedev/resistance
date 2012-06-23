@@ -71,12 +71,17 @@ class CompetitionRunner(object):
 
     def pickPlayersForRound(self):
         # Only one instance of each bot per game, assumes more than five.
-        # return players = random.sample(competitors, 5)
+        # return random.sample(self.competitors, 5)
         
         # Multiple possible bot instances per game, works for any number.
         return [random.choice(self.competitors) for x in range(0,5)] 
 
     def main(self):
+        names = [bot.__name__ for bot in self.competitors]
+        for bot in self.competitors:
+            if hasattr(bot, 'onCompetitionStarting'):
+                bot.onCompetitionStarting(names)
+
         for i in range(1,self.rounds+1):
             if i % 2000 == 0: print >>sys.stderr, 'o'
             elif i % 50 == 0: print >>sys.stderr, '.',
@@ -101,7 +106,12 @@ class CompetitionRunner(object):
         return g
 
     def show(self):
-        print "\nSPIES\t\t\t\t(voted,\t\tselected)"
+        print "\n"
+        for bot in self.competitors:
+            if hasattr(bot, 'onCompetitionFinished'):
+                bot.onCompetitionFinished()
+
+        print "SPIES\t\t\t\t(voted,\t\tselected)"
         for s in sorted(statistics.items(), key = lambda x: -x[1].spyWins.estimate()):
             print " ", s[0], "\t", s[1].spyWins, "\t\t", s[1].spyVoted, "\t\t", s[1].spySelected
 
@@ -122,16 +132,21 @@ if __name__ == '__main__':
         sys.exit(-1)
 
     competitors = []
-    for filename, classname in [s.split('.') for s in sys.argv[2:]]:
+    for request in sys.argv[2:]:
+        if '.' in request:
+            filename, classname = request.split('.')
+        else:
+            filename, classname = request, None
+
         module = importlib.import_module(filename)
-        if classname == 'ALL':
+        if classname:
+            competitors.append(getattr(module, classname))
+        else:
             for b in dir(module):
                 if b.startswith('__') or b == 'Bot': continue
                 cls = getattr(module, b)
                 if hasattr(cls, 'sabotage'):
                     competitors.append(cls)
-        else:    
-            competitors.append(getattr(module, classname))
 
     runner = CompetitionRunner(competitors, int(sys.argv[1]))
     try:
