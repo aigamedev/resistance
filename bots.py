@@ -41,7 +41,7 @@ class RandomBot(Bot):
 
     def select(self, players, count):
         self.log.info("A completely random selection.")
-        return random.sample(players, count)
+        return random.sample(self.game.players, count)
 
     def vote(self, team): 
         self.log.info("A completely random vote.")
@@ -66,10 +66,10 @@ class Deceiver(Bot):
         if self.game.tries == 5:
             return True
         # Spies select any mission with only one spy on it.
-        if self.spy and len(team) == 2:
-            return len([p for p in team if p in self.spies]) == 1
+        if self.spy and len(self.game.team) == 2:
+            return len([p for p in self.game.team if p in self.spies]) == 1
         # If I'm not on the team, and it's a team of 3...
-        if len(team) == 3 and not self in team: 
+        if len(self.game.team) == 3 and not self in self.game.team: 
             return False
         return True
 
@@ -94,9 +94,9 @@ class RuleFollower(Bot):
             return not self.spy
         # Spies select any mission with one or more spies on it.
         if self.spy:
-            return len([p for p in team if p in self.spies]) > 0
+            return len([p for p in self.game.team if p in self.spies]) > 0
         # If I'm not on the team, and it's a team of 3...
-        if len(team) == 3 and not self in team:
+        if len(self.game.team) == 3 and not self in self.game.team:
             return False
         return True
 
@@ -116,7 +116,7 @@ class Jammer(Bot):
         if not self.spies:
             return random.sample(self.game.players, count)
         else: 
-            return self.spies + random.sample(set(self.game.players) - set(self.spies), count-2)
+            return list(self.spies) + random.sample(set(self.game.players) - set(self.spies), count-2)
 
     def vote(self, team): 
         return True
@@ -134,4 +134,5 @@ class Jammer(Bot):
             self.log.info("Coordinating according to the position around the table...")
             return self.index > spies[0].index
         return True
+
 

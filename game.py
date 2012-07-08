@@ -6,21 +6,26 @@ from player import Player
 
 class State:
     """Simple game state data-structure that's passed to bots to help reduce
-    the amount of book-keeping required."""
+    the amount of book-keeping required.  Your bots can access this via the
+    self.game member variable.
+
+    This data-structure is available in all the bot API functions, and gets
+    updated automatically (in between API calls) once new information is
+    available about the game."""
 
     def __init__(self):
-        self.turn = 1 
-        self.tries = 1
-        self.wins = 0
-        self.losses = 0
-        self.leader = None
-        self.team = None
-        self.players = None
+        self.turn = 1                   # int (1..5): Mission number.
+        self.tries = 1                  # int (1..5): Attempt number.
+        self.wins = 0                   # int (1..3): Number of resistance wins.
+        self.losses = 0                 # int (1..3): Number of spy victories.
+        self.leader = None              # Player: Current mission leader.
+        self.team = None                # set(Player): Set of players picked.
+        self.players = None             # list[Player]: All players in a list.
 
 
 class Game:
-    """Implementation of the core gameplay of THE RESISTANCE.  This class currently
-    only supports games of 5 players."""
+    """Implementation of the core gameplay of THE RESISTANCE.  This class
+    currently only supports games of 5 players."""
 
     NUM_TURNS = 5
     NUM_WINS = 3
@@ -43,7 +48,7 @@ class Game:
         self.bots = [p(self.state, i, r) for p, r, i in zip(bots, roles, range(1, len(bots)+1))]
         
         # Maintain a copy of players that includes minimal data, for passing to other bots.
-        self.state.players = [Player(p.name, p.index) for p in self.bots]
+        self.state.players = set([Player(p.name, p.index) for p in self.bots])
     
         # Configuration for the game itself.
         self.participants = [2, 3, 2, 3, 3]
@@ -57,12 +62,12 @@ class Game:
         simulate the game until it is complete."""
 
         # Tell the bots who the spies are if they are allowed to know.
-        spies = [self.state.players[p.index-1] for p in self.bots if p.spy]
+        spies = set([Player(p.name, p.index) for p in self.bots if p.spy])
         for p in self.bots:
             if p.spy:
-                p.onGameRevealed(self.state.players[:], spies[:])
+                p.onGameRevealed(self.state.players, spies)
             else:
-                p.onGameRevealed(self.state.players[:], [])
+                p.onGameRevealed(self.state.players, set())
 
         # Repeat as long as the game hasn't hit the max number of missions.
         while self.state.turn <= self.NUM_TURNS:
@@ -103,12 +108,13 @@ class Game:
 
         # Step 1) Pick the leader and ask for a selection of players on the team.
         self.state.leader = self.leader.next()
+        self.state.team = None
         l = self.bots[self.state.leader.index-1]
         for p in self.bots:
             p.onMissionAttempt(self.state.turn, self.state.tries, self.state.leader)
 
         count = self.participants[self.state.turn-1]
-        selected = l.select(self.state.players[:], count)
+        selected = l.select(self.state.players, count)
 
         # Check the data returned by the bots is in the expected format!
         assert type(selected) is list or type(selected) is set, "Expecting a list as a return value of select()."
@@ -119,7 +125,7 @@ class Game:
         self.onPlayerSelected(l, [b for b in self.bots if b in selected])
         # Copy the list to make sure no internal data is leaked to the other bots!
         selected = [Player(s.name, s.index) for s in selected]
-        self.state.team = selected
+        self.state.team = set(selected)
         for p in self.bots:
             p.onTeamSelected(self.state.leader, selected)
 

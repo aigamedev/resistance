@@ -106,22 +106,26 @@ class CompetitionRunner(object):
         return g
 
     def show(self):
-        print "\n"
+        print "\n",
         for bot in self.competitors:
             if hasattr(bot, 'onCompetitionFinished'):
                 bot.onCompetitionFinished()
 
+        if len(statistics) == 0:
+            return
+
         print "SPIES\t\t\t\t(voted,\t\tselected)"
-        for s in sorted(statistics.items(), key = lambda x: -x[1].spyWins.estimate()):
+        for s in sorted(statistics.items(), key = lambda x: x[1].spyWins.estimate(), reverse = True):
             print " ", s[0], "\t", s[1].spyWins, "\t\t", s[1].spyVoted, "\t\t", s[1].spySelected
 
         print "\nRESISTANCE\t\t\t(vote,\t\tselect)" 
-        for s in sorted(statistics.items(), key = lambda x: -x[1].resWins.estimate()):
+        for s in sorted(statistics.items(), key = lambda x: x[1].resWins.estimate(), reverse = True):
             print " ", s[0], "\t", s[1].resWins, "\t\t", s[1].votesRes, s[1].votesSpy, "\t", s[1].selections
 
         print "\nTOTAL" 
-        for s in sorted(statistics.items(), key = lambda x: -x[1].total().estimate()):
+        for s in sorted(statistics.items(), key = lambda x: x[1].total().estimate(), reverse = True):
             print " ", s[0], "\t", s[1].total()
+        print "\n",
 
 
 if __name__ == '__main__':

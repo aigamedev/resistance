@@ -31,7 +31,7 @@ class LogicalBot(Bot):
         if len(team) == count-1:
             return me + team
         # Try to put together another team that combines past winners and not spies.
-        others = [p for p in players if p != self and p not in (team+self.spies)]
+        others = [p for p in players if p != self and p not in (set(team) | self.spies)]
         return self._sample(me + team, others, count-1-len(team))
 
     def _sample(self, selected, candidates, count):
@@ -89,7 +89,7 @@ class LogicalBot(Bot):
         # We have more thumbs down than suspects and spies!
         if sabotaged >= len(suspects) + len(spies):
             for spy in [s for s in suspects if s not in self.spies]:
-                self.spies.append(spy)
+                self.spies.add(spy)
         else:
             # Remember this specific failed teams so we can taboo search.
             self.taboo.append([p for p in self.game.team if p != self])
@@ -210,7 +210,7 @@ class Statistician(Bot):
 
     def onMissionComplete(self, sabotaged):
         # Store this information for later once we know the spies.
-        self.missions.append((self.game.team[:], sabotaged))
+        self.missions.append((self.game.team.copy(), sabotaged))
         if self.spy:
             return
 
@@ -226,7 +226,7 @@ class Statistician(Bot):
     
     def onVoteComplete(self, votes):
         # Step 2) Store.
-        self.votes.append((votes, self.game.team[:]))
+        self.votes.append((votes, self.game.team.copy()))
 
         # Based on the voting, we can do many things:
         #   - Infer the probability of spies being on the team.
