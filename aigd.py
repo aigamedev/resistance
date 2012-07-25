@@ -61,7 +61,7 @@ class LogicalBot(Bot):
         if self.game.tries == 5:
             return True
         # If there's a known spy on the team.
-        if set(team).intersection(set(self.spies)):
+        if set(team).intersection(self.spies):
             return False
         # Taboo list of past suspicious teams.
         if self._discard(team):

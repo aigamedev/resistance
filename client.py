@@ -2,6 +2,7 @@ import logging
 from twisted.words.protocols import irc
 from twisted.internet import reactor, protocol
 
+from competition import getCompetitors
 from player import Player
 from game import State
 
@@ -70,10 +71,10 @@ class ResistanceClient(object):
         bot.game.players = participants
 
         # SPIES 1-Deceiver.
-        saboteurs = []
+        saboteurs = set()
         if spies:
             for s in spies.split(' ')[1:]:
-                saboteurs.append(self.makePlayer(s.rstrip(',')))
+                saboteurs.add(self.makePlayer(s.rstrip(',')))
             bot.game.spies = saboteurs
 
         bot.onGameRevealed(participants, saboteurs)
@@ -144,7 +145,7 @@ class ResistanceClient(object):
             self.reply("QUERY %s" % (players))
 
     def makeTeam(self, team):
-        return [self.makePlayer(t.strip('., ')) for t in team.split(' ')[1:]]
+        return set([self.makePlayer(t.strip('., ')) for t in team.split(' ')[1:]])
 
     def makePlayer(self, identifier):
         index, name = identifier.split('-')
@@ -231,10 +232,7 @@ if __name__ == '__main__':
         print 'USAGE: client.py file.BotName [...]'
         sys.exit(-1)
 
-    for path in sys.argv[1:]:
-        filename, classname = path.split('.')
-        module = importlib.import_module(filename)
-        cls = getattr(module, classname)
+    for cls in getCompetitors(sys.argv[1:]):
         reactor.connectTCP("localhost", 6667, ResistanceFactory(cls))
 
     reactor.run()

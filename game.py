@@ -48,7 +48,7 @@ class Game:
         self.bots = [p(self.state, i, r) for p, r, i in zip(bots, roles, range(1, len(bots)+1))]
         
         # Maintain a copy of players that includes minimal data, for passing to other bots.
-        self.state.players = set([Player(p.name, p.index) for p in self.bots])
+        self.state.players = [Player(p.name, p.index) for p in self.bots]
     
         # Configuration for the game itself.
         self.participants = [2, 3, 2, 3, 3]

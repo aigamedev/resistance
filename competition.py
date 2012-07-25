@@ -1,4 +1,5 @@
 # -*- coding: utf8 -*-
+import importlib
 import random
 import sys
 
@@ -128,15 +129,9 @@ class CompetitionRunner(object):
         print "\n",
 
 
-if __name__ == '__main__':
-    import importlib
-    
-    if len(sys.argv) <= 2:
-        print 'USAGE: competition.py 10000 file.BotName [...]'
-        sys.exit(-1)
-
+def getCompetitors(argv):
     competitors = []
-    for request in sys.argv[2:]:
+    for request in argv:
         if '.' in request:
             filename, classname = request.split('.')
         else:
@@ -151,7 +146,14 @@ if __name__ == '__main__':
                 cls = getattr(module, b)
                 if hasattr(cls, 'sabotage'):
                     competitors.append(cls)
+    return competitors
 
+if __name__ == '__main__':
+    if len(sys.argv) <= 2:
+        print 'USAGE: competition.py 10000 file.BotName [...]'
+        sys.exit(-1)
+
+    competitors = getCompetitors(sys.argv[2:])
     runner = CompetitionRunner(competitors, int(sys.argv[1]))
     try:
         runner.main()
