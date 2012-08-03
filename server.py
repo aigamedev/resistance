@@ -1,6 +1,7 @@
 # COMPETITION
 # - Check current games for players disconnecting and invalidate them.
 # - For speed, use a constant set of bot channels rather than game channels.
+# - (DONE) Output the statistics of the competition that was just run.
 # - (DONE) Performance checks for running games to try to improve simulations.
 # - (DONE) Allow specifying a number of games to run, and their permutations.
 # - (DONE) Run multiple games in parallel in multiple greenlets for speed.
@@ -33,9 +34,12 @@ from gevent.event import Event, AsyncResult
 from geventirc import Client
 from geventirc import message
 
-from competition import CompetitionRunner
+from competition import CompetitionRunner, CompetitionRound
 from player import Player, Bot
 from game import Game
+
+
+CHANNELS = 100
 
 
 def showYesOrNo(b):
@@ -203,6 +207,9 @@ class ResistanceCompetitionHandler(CompetitionRunner):
             participants = random.sample(self.competitors, 5)
         return [ProxyBot(bot, self.client, "#game-0002") for bot in participants]
 
+    def echo(self, *args):
+        self.client.msg('#resistance', ' '.join([str(a) for a in args]))
+
     def run(self, game):
         t = time.time()
         GAMES = 1
@@ -245,23 +252,23 @@ class ResistanceCompetitionHandler(CompetitionRunner):
             self.client.msg('#resistance', 'PLAYED %i games in %0.2fs, at %0.2f GPS.' % (GAMES, seconds, float(GAMES)/seconds))
         else:
             self.client.msg('#resistance', 'PLAYED game in %0.2fs.' % (seconds))
+        self.show()
 
     def _play(self, count, candidates, result):
         channel = "#game-%04i" % (count)
         # self.client.msg('#resistance', 'GAME %s PLAYING %s!' % (channel, ' '.join(candidates)))
         players = [ProxyBot(bot.lstrip('@'), self.client, channel) for bot in candidates]
-        g = self.play(Game, players, channel)
+        g = self.play(CompetitionRound, players, channel)
         text = {True: "Resistance WON!", False: "Spies WON..."}
         # self.client.msg('#resistance', 'GAME %s PLAYED %s. %s' % (channel, ' '.join(candidates), text[g.won]))
         result.put(g.won)
-        self.games.remove(g)
 
         self.channels.put(count)
     
     def _loop(self):
         # Allocate a pool of 50 channels for playing games.
         self.channels = queue.Queue()
-        for i in range(0,100):
+        for i in range(0, CHANNELS):
             self.channels.put(i)
 
         self.upcoming = queue.Queue()

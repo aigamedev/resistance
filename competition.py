@@ -87,26 +87,30 @@ class CompetitionRunner(object):
             if i % 2000 == 0: print >>sys.stderr, 'o'
             elif i % 50 == 0: print >>sys.stderr, '.',
 
-            g = self.play(CompetitionRound, self.pickPlayersForRound())
-            for b in g.bots:
-                statistics.setdefault(b.name, CompetitionStatistics())
-                s = statistics.get(b.name)
-
-                if b.spy:
-                    s.spyWins.sample(int(not g.won))
-                else:
-                    s.resWins.sample(int(g.won))
-
-            self.games.remove(g)
+            self.play(CompetitionRound, self.pickPlayersForRound())
 
     def play(self, GameType, players, channel = None):
         g = GameType(players)
         g.channel = channel
         self.games.append(g)
         g.run()
+        self.games.remove(g)
+
+        for b in g.bots:
+            statistics.setdefault(b.name, CompetitionStatistics())
+            s = statistics.get(b.name)
+            if b.spy:
+                s.spyWins.sample(int(not g.won))
+            else:
+                s.resWins.sample(int(g.won))
         return g
 
+    def echo(self, *args):
+        print ' '.join([str(a) for a in args])
+
     def show(self):
+        global statistics
+
         print "\n",
         for bot in self.competitors:
             if hasattr(bot, 'onCompetitionFinished'):
@@ -115,18 +119,20 @@ class CompetitionRunner(object):
         if len(statistics) == 0:
             return
 
-        print "SPIES\t\t\t\t(voted,\t\tselected)"
+        self.echo("SPIES\t\t\t\t(voted,\t\tselected)")
         for s in sorted(statistics.items(), key = lambda x: x[1].spyWins.estimate(), reverse = True):
-            print " ", s[0], "\t", s[1].spyWins, "\t\t", s[1].spyVoted, "\t\t", s[1].spySelected
+            self.echo(" ", '{0:<16s}'.format(s[0]), s[1].spyWins, "\t", s[1].spyVoted, "\t", s[1].spySelected)
 
-        print "\nRESISTANCE\t\t\t(vote,\t\tselect)" 
+        self.echo("RESISTANCE\t\t\t(vote,\t\tselect)")
         for s in sorted(statistics.items(), key = lambda x: x[1].resWins.estimate(), reverse = True):
-            print " ", s[0], "\t", s[1].resWins, "\t\t", s[1].votesRes, s[1].votesSpy, "\t", s[1].selections
+            self.echo(" ", '{0:<16s}'.format(s[0]), s[1].resWins, "\t", s[1].votesRes, s[1].votesSpy, "\t", s[1].selections)
 
-        print "\nTOTAL" 
+        self.echo("TOTAL")
         for s in sorted(statistics.items(), key = lambda x: x[1].total().estimate(), reverse = True):
-            print " ", s[0], "\t", s[1].total()
-        print "\n",
+            self.echo(" ", '{0:<16s}'.format(s[0]), s[1].total())
+        self.echo("")
+
+        statistics = {}
 
 
 def getCompetitors(argv):
