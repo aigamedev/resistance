@@ -232,7 +232,11 @@ if __name__ == '__main__':
         print 'USAGE: client.py file.BotName [...]'
         sys.exit(-1)
 
+    server = 'localhost'
+    if 'irc.' in sys.argv[1]:
+        server = sys.argv.pop(1)
+
     for cls in getCompetitors(sys.argv[1:]):
-        reactor.connectTCP("localhost", 6667, ResistanceFactory(cls))
+        reactor.connectTCP(server, 6667, ResistanceFactory(cls))
 
     reactor.run()

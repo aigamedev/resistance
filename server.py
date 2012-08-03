@@ -192,6 +192,9 @@ class ResistanceCompetitionHandler(CompetitionRunner):
                 '353', # NAMES
     ]
 
+    def __init__(self):
+        CompetitionRunner.__init__(self, [], 0)
+
     def pickPlayersForRound(self):
         assert len(self.competitors) > 0
         if len(self.competitors) < 5:
@@ -199,14 +202,6 @@ class ResistanceCompetitionHandler(CompetitionRunner):
         else:
             participants = random.sample(self.competitors, 5)
         return [ProxyBot(bot, self.client, "#game-0002") for bot in participants]
-
-    def start(self):
-        self.main()
-        self.show()
-
-        # self.client.send_message(message.Command('#resistance', 'NAMES'))
-   
-        self.client.stop()
 
     def run(self, game):
         t = time.time()
@@ -228,14 +223,14 @@ class ResistanceCompetitionHandler(CompetitionRunner):
         # Put an '@' in front of humans when specifying the players.
         bots = [c for c in candidates if '@' not in c]
 
-        while len(candidates) < 5:
-            missing = min(5 - len(candidates), len(bots))
-            candidates.extend(random.sample(bots, missing))
+        if len(candidates) < 5:
+            while len(candidates) < 5:
+                missing = min(5 - len(candidates), len(bots))
+                candidates.extend(random.sample(bots, missing))
+            random.shuffle(candidates)
         
         if len(candidates) > 5:
             candidates = random.sample(candidates, 5)
-        # else:
-        #    random.shuffle(candidates)
 
         results = queue.Queue()
         for i in range(0, GAMES):
@@ -266,7 +261,7 @@ class ResistanceCompetitionHandler(CompetitionRunner):
     def _loop(self):
         # Allocate a pool of 50 channels for playing games.
         self.channels = queue.Queue()
-        for i in range(1,101):
+        for i in range(0,100):
             self.channels.put(i)
 
         self.upcoming = queue.Queue()
@@ -300,10 +295,7 @@ class ResistanceCompetitionHandler(CompetitionRunner):
 
             self.competitors = [u.strip('+@') for u in msg.params[3:]]
             self.competitors.remove(client.nick)
-            # Once we've connected and joined the channel, we'll get a list
-            # of people there.  We can start games with those!
-            if self.rounds > 0:
-                self.start()
+
         elif msg.command == 'JOIN':
             user = msg.prefix.split('!')[0].strip('+@')
             if user == client.nick:
@@ -371,12 +363,12 @@ class ResistanceCompetitionHandler(CompetitionRunner):
 
 if __name__ == '__main__':
     
-    rounds = 0
+    server = 'localhost'
     if len(sys.argv) > 1:
-        rounds = int(sys.argv[1])
-    
-    irc = Client('localhost', 'aigamedev',  port=6667, local_hostname='caribou')
-    h = ResistanceCompetitionHandler([], rounds)
+        server = sys.argv[1]
+
+    irc = Client(server, 'aigamedev',  port=6667, local_hostname='localhost')
+    h = ResistanceCompetitionHandler()
     irc.add_handler(h)
     irc.start()
     irc.join()
