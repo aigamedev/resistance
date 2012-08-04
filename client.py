@@ -181,9 +181,6 @@ class ResistanceClient(object):
 
 class ResistanceProtocol(irc.IRCClient):
            
-    def __init__(self):
-        self.client = None
-
     @property
     def nickname(self):
         return self.factory.nickname
@@ -192,6 +189,7 @@ class ResistanceProtocol(irc.IRCClient):
         print "CONNECTED %s" % (self.nickname)
         self.client = ResistanceClient(self, self.factory.constructor)
         self.join('#resistance')
+        self.msg('aigamedev', 'BOT')
 
     def joined(self, channel):
         pass
@@ -205,6 +203,11 @@ class ResistanceProtocol(irc.IRCClient):
     
     def userQuit(self, user, reason):
         self.client.disconnect(user)
+
+    def irc_INVITE(self, user, args):
+        channel = args[1]
+        if '#game-' in channel:
+            self.join(channel) 
 
 
 class ResistanceFactory(protocol.ClientFactory):
