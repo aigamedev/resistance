@@ -103,6 +103,7 @@ class ResistanceClient(object):
         # VOTE 1-Random, 2-Hippie, 3-Paranoid.
         bot = self.getBot()
         bot.game.team = self.makeTeam(team)
+        bot.onTeamSelected(bot.game.leader, bot.game.team)
         result = bot.vote(bot.game.team)
         reply = {True: "Yes", False: "No"}
         self.reply('VOTED %s.' % (reply[result]))

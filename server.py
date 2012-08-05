@@ -13,7 +13,7 @@
 
 # HUMAN PLAY
 # - Have bots respond to questions about suspicion levels of players.
-# - Use custom name channels for bots acting as proxy for real players.
+# - Use custom name channels for IRC clients acting as proxy for real players.
 # - Provide a HELP command that provides some contextual explanation.
 # - (DONE) Let bots output debug explanations for select & vote via self.log.
 # - (DONE) In mixed human/bot games, allow moderator to type result of mission.
@@ -253,7 +253,7 @@ class ResistanceCompetitionHandler(CompetitionRunner):
         timeouts = 0
         for i in range(0, GAMES):
             r = results.get()
-            if r:
+            if r is not None:
                 wins += int(r)
             else:
                 timeouts += 1
