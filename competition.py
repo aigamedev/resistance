@@ -1,4 +1,5 @@
-# -*- coding: utf8 -*-
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 import importlib
 import random
 import sys
@@ -20,11 +21,14 @@ class CompetitionStatistics:
         self.selections = Variable()
 
     def total(self):
-        return Variable(self.resWins.total + self.spyWins.total, self.resWins.samples + self.spyWins.total)
+        return Variable(
+            self.resWins.total + self.spyWins.total,
+            self.resWins.samples + self.spyWins.samples
+            )
 
 
 class CompetitionRound(Game):
-    
+
     def onPlayerVoted(self, player, vote, leader, team):
         global statistics
         if player.spy:
