@@ -156,6 +156,7 @@ class Game:
             result = False
             if p.spy:
                 result = p.sabotage()
+                assert type(result) is bool, "Please return a boolean from sabotage()."
             sabotaged += int(result)
 
         if sabotaged == 0:
