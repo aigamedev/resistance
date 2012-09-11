@@ -4,6 +4,7 @@ import importlib
 import random
 import sys
 
+from player import Bot
 from game import Game
 from util import Variable
 
@@ -69,27 +70,39 @@ class CompetitionRound(Game):
 
 class CompetitionRunner(object):
 
-    def __init__(self, competitors, rounds = 10000):
+    def __init__(self, competitors, rounds = 10000, quiet = False):
         self.competitors = competitors
         self.rounds = rounds
+        self.quiet = quiet
         self.games = [] 
 
     def pickPlayersForRound(self):
+        if len(self.competitors) == 5:
+            return self.competitors
+
         # Only one instance of each bot per game, assumes more than five.
         # return random.sample(self.competitors, 5)
+
+        # Here we evaluate the first bot against a random sample of the others.
+        return [self.competitors[0]] + random.sample(self.competitors[1:], 4)
         
         # Multiple possible bot instances per game, works for any number.
-        return [random.choice(self.competitors) for x in range(0,5)] 
+        # return [self.competitors[0]] + [random.choice(self.competitors[1:]) for x in range(4)]
 
     def main(self):
+        global statistics
+        statistics = {}
+
         names = [bot.__name__ for bot in self.competitors]
         for bot in self.competitors:
             if hasattr(bot, 'onCompetitionStarting'):
                 bot.onCompetitionStarting(names)
 
         for i in range(1,self.rounds+1):
-            if i % 2000 == 0: print >>sys.stderr, 'o'
-            elif i % 50 == 0: print >>sys.stderr, '.',
+            if not self.quiet:
+                if i % 500 == 0: print >>sys.stderr, '(%02i%%)' % (100*(i+1)/self.rounds)
+                elif i % 100 == 0: print >>sys.stderr, 'o',
+                elif i % 25 == 0: print >>sys.stderr, '.',
 
             self.play(CompetitionRound, self.pickPlayersForRound())
 
@@ -110,12 +123,17 @@ class CompetitionRunner(object):
         return g
 
     def echo(self, *args):
-        print ' '.join([str(a) for a in args])
+        print(' '.join([str(a) for a in args]))
 
-    def show(self):
+    def score(self, name):
+        return (statistics[name].spyWins.estimate(),
+                statistics[name].resWins.estimate(),
+                statistics[name].total())
+
+    def show(self, summary = False):
         global statistics
 
-        print "\n",
+        print("")
         for bot in self.competitors:
             if hasattr(bot, 'onCompetitionFinished'):
                 bot.onCompetitionFinished()
@@ -123,20 +141,20 @@ class CompetitionRunner(object):
         if len(statistics) == 0:
             return
 
-        self.echo("SPIES\t\t\t\t(voted,\t\tselected)")
-        for s in sorted(statistics.items(), key = lambda x: x[1].spyWins.estimate(), reverse = True):
-            self.echo(" ", '{0:<16s}'.format(s[0]), s[1].spyWins, "\t", s[1].spyVoted, "\t", s[1].spySelected)
+        if not summary:
+            self.echo("SPIES\t\t\t\t(voted,\t\tselected)")
+            for s in sorted(statistics.items(), key = lambda x: x[1].spyWins.estimate(), reverse = True):
+                self.echo(" ", '{0:<16s}'.format(s[0]), s[1].spyWins, "\t", s[1].spyVoted, "\t", s[1].spySelected)
 
-        self.echo("RESISTANCE\t\t\t(vote,\t\tselect)")
-        for s in sorted(statistics.items(), key = lambda x: x[1].resWins.estimate(), reverse = True):
-            self.echo(" ", '{0:<16s}'.format(s[0]), s[1].resWins, "\t", s[1].votesRes, s[1].votesSpy, "\t", s[1].selections)
+            self.echo("RESISTANCE\t\t\t(vote,\t\tselect)")
+            for s in sorted(statistics.items(), key = lambda x: x[1].resWins.estimate(), reverse = True):
+                self.echo(" ", '{0:<16s}'.format(s[0]), s[1].resWins, "\t", s[1].votesRes, s[1].votesSpy, "\t", s[1].selections)
 
-        self.echo("TOTAL")
+            self.echo("TOTAL")
+
         for s in sorted(statistics.items(), key = lambda x: x[1].total().estimate(), reverse = True):
             self.echo(" ", '{0:<16s}'.format(s[0]), s[1].total())
         self.echo("")
-
-        statistics = {}
 
 
 def getCompetitors(argv):
@@ -152,15 +170,19 @@ def getCompetitors(argv):
             competitors.append(getattr(module, classname))
         else:
             for b in dir(module):
+                if hasattr(module, '__all__') and not b in module.__all__: continue
                 if b.startswith('__') or b == 'Bot': continue
                 cls = getattr(module, b)
-                if hasattr(cls, 'sabotage'):
-                    competitors.append(cls)
+                try:
+                    if issubclass(cls, Bot):
+                        competitors.append(cls)
+                except TypeError:
+                    pass
     return competitors
 
 if __name__ == '__main__':
     if len(sys.argv) <= 2:
-        print 'USAGE: competition.py 10000 file.BotName [...]'
+        print('USAGE: competition.py 10000 file.BotName [...]')
         sys.exit(-1)
 
     competitors = getCompetitors(sys.argv[2:])
