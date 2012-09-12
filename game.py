@@ -36,13 +36,34 @@ class Game:
    
     def onPlayerSelected(self, player, team):
         pass
-   
-    def __init__(self, bots):
+
+
+    def onGameRevealed(self, players, spies):
+        pass
+
+    def onMissionAttempt(self, mission, tries, leader):
+        pass
+
+    def onTeamSelected(self, leader, team):
+        pass
+
+    def onVoteComplete(self, votes):
+        pass
+
+    def onMissionComplete(self, sabotaged):
+        pass
+
+    def onGameComplete(self, win, spies):
+        pass
+
+
+    def __init__(self, bots, roles = None):
         self.state = State()        
 
         # Randomly assign the roles based on the player index.
-        roles = [True, True, False, False, False]
-        random.shuffle(roles)
+        if roles is None:
+            roles = [True, True, False, False, False]
+            random.shuffle(roles)
 
         # Create Bot instances based on the constructor passed in.
         self.bots = [p(self.state, i, r) for p, r, i in zip(bots, roles, range(1, len(bots)+1))]
@@ -68,6 +89,7 @@ class Game:
                 p.onGameRevealed(self.state.players, spies)
             else:
                 p.onGameRevealed(self.state.players, set())
+        self.onGameRevealed(self.state.players, spies)
 
         # Repeat as long as the game hasn't hit the max number of missions.
         while self.state.turn <= self.NUM_TURNS:
@@ -93,6 +115,7 @@ class Game:
         # Pass back the results to the bots so they can do some learning!
         for p in self.bots:
             p.onGameComplete(self.state.wins >= self.NUM_WINS, spies)
+        self.onGameComplete(self.state.wins >= self.NUM_WINS, spies)
 
     @property
     def won(self):
@@ -112,6 +135,7 @@ class Game:
         l = self.bots[self.state.leader.index-1]
         for p in self.bots:
             p.onMissionAttempt(self.state.turn, self.state.tries, self.state.leader)
+        self.onMissionAttempt(self.state.turn, self.state.tries, self.state.leader)
 
         count = self.participants[self.state.turn-1]
         selected = l.select(self.state.players, count)
@@ -119,7 +143,7 @@ class Game:
         # Check the data returned by the bots is in the expected format!
         assert type(selected) is list or type(selected) is set, "Expecting a list as a return value of select()."
         assert len(set(selected)) == count, "The list returned by %s.select() is of the wrong size!" % (l.name)
-        for s in selected: assert isinstance(s, Player), "Please return Player objects in the list from select()."
+        for s in selected: assert isinstance(s, Player), "Please return Player objects in the list from %s.select()." % (l.name)
 
         # Make an internal callback, e.g. to track statistics about selection.
         self.onPlayerSelected(l, [b for b in self.bots if b in selected])
@@ -128,6 +152,7 @@ class Game:
         self.state.team = set(selected)
         for p in self.bots:
             p.onTeamSelected(self.state.leader, selected)
+        self.onTeamSelected(self.state.leader, selected)
 
         # Step 2) Notify other bots of the selection and ask for a vote.
         votes = []
@@ -135,7 +160,7 @@ class Game:
         for p in self.bots:
             v = p.vote(selected[:])
             self.onPlayerVoted(p, v, l, [b for b in self.bots if b in selected])
-            assert type(v) is bool, "Please return a boolean from vote()."
+            assert type(v) is bool, "Please return a boolean from %s.vote() instead of %s." % (p.name, type(v))
 
             votes.append(v)
             score += int(v)
@@ -143,6 +168,7 @@ class Game:
         # Step 3) Notify players of the vote result.
         for p in self.bots:
             p.onVoteComplete(votes[:])
+        self.onVoteComplete(votes[:])
 
         # Bail out if there was no clear majority...
         if score <= 2:
@@ -156,7 +182,7 @@ class Game:
             result = False
             if p.spy:
                 result = p.sabotage()
-                assert type(result) is bool, "Please return a boolean from sabotage()."
+                assert type(result) is bool, "Please return a boolean from %s.sabotage(), not %s." % (p.name, type(result))
             sabotaged += int(result)
 
         if sabotaged == 0:
@@ -174,6 +200,7 @@ class Game:
         # passed back safely without divulging Spy/Resistance identities.
         for p in [b for b in self.bots if b not in selected]:
             p.onMissionComplete(sabotaged)
+        self.onMissionComplete(sabotaged)
 
         return True
 

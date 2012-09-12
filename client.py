@@ -187,7 +187,7 @@ class ResistanceProtocol(irc.IRCClient):
         return self.factory.nickname
 
     def signedOn(self):
-        print "CONNECTED %s" % (self.nickname)
+        print("CONNECTED %s" % (self.nickname))
         self.client = ResistanceClient(self, self.factory.constructor)
         self.join('#resistance')
         self.msg('aigamedev', 'BOT')
@@ -205,6 +205,10 @@ class ResistanceProtocol(irc.IRCClient):
     def userQuit(self, user, reason):
         self.client.disconnect(user)
 
+    def userJoined(self, user, channel):
+        if 'aigamedev' in user:
+            self.msg('aigamedev', 'BOT')
+
     def irc_INVITE(self, user, args):
         channel = args[1]
         if '#game-' in channel:
@@ -220,11 +224,11 @@ class ResistanceFactory(protocol.ClientFactory):
         self.nickname = bot.__name__
 
     def clientConnectionLost(self, connector, reason):        
-        print 'Connection lost.', reason
+        print('Connection lost.', reason)
         connector.connect()
 
     def clientConnectionFailed(self, connector, reason):
-        print 'Connection failed.', reason
+        print('Connection failed.', reason)
         reactor.stop()
 
 
@@ -233,7 +237,7 @@ if __name__ == '__main__':
     import sys
     
     if len(sys.argv) == 1:
-        print 'USAGE: client.py file.BotName [...]'
+        print('USAGE: client.py file.BotName [...]')
         sys.exit(-1)
 
     server = 'localhost'

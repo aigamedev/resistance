@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import itertools
 import importlib
 import random
 import sys
@@ -76,17 +77,21 @@ class CompetitionRunner(object):
         self.quiet = quiet
         self.games = [] 
 
-    def pickPlayersForRound(self):
+    def listRoundsOfCompetitors(self):
         if len(self.competitors) == 5:
-            return self.competitors
+            for i in range(self.rounds):
+                yield self.competitors
+            return
 
         # Only one instance of each bot per game, assumes more than five.
         # return random.sample(self.competitors, 5)
 
         # Here we evaluate the first bot against a random sample of the others.
-        return [self.competitors[0]] + random.sample(self.competitors[1:], 4)
-        
-        # Multiple possible bot instances per game, works for any number.
+        for i in range(self.rounds):
+            for competitors in itertools.combinations(self.competitors[1:], 4):
+                yield [self.competitors[0]] + list(competitors)
+        return
+
         # return [self.competitors[0]] + [random.choice(self.competitors[1:]) for x in range(4)]
 
     def main(self):
@@ -98,16 +103,17 @@ class CompetitionRunner(object):
             if hasattr(bot, 'onCompetitionStarting'):
                 bot.onCompetitionStarting(names)
 
-        for i in range(1,self.rounds+1):
+        for i, players in enumerate(self.listRoundsOfCompetitors()):
             if not self.quiet:
                 if i % 500 == 0: print >>sys.stderr, '(%02i%%)' % (100*(i+1)/self.rounds)
                 elif i % 100 == 0: print >>sys.stderr, 'o',
                 elif i % 25 == 0: print >>sys.stderr, '.',
 
-            self.play(CompetitionRound, self.pickPlayersForRound())
+            for roles in set(itertools.permutations([True, True, False, False, False])):
+                self.play(CompetitionRound, players, roles)
 
-    def play(self, GameType, players, channel = None):
-        g = GameType(players)
+    def play(self, GameType, players, roles = None, channel = None):
+        g = GameType(players, roles)
         g.channel = channel
         self.games.append(g)
         g.run()
@@ -129,6 +135,13 @@ class CompetitionRunner(object):
         return (statistics[name].spyWins.estimate(),
                 statistics[name].resWins.estimate(),
                 statistics[name].total())
+
+    def rank(self, name):
+        results = sorted(statistics.items(), key = lambda x: x[1].total().estimate(), reverse = True)
+        for i in range(len(results)):
+            if results[i][0] == name:
+                return i
+        return None
 
     def show(self, summary = False):
         global statistics

@@ -59,6 +59,34 @@ def parseYesOrNo(text):
     return result 
 
 
+class OnlineRound(CompetitionRound):
+    
+    def send(self, message):
+        OnlineRound.client.msg(self.channel, message)
+
+    def onGameRevealed(self, players, spies):
+        self.send(str(players))
+
+    def onMissionAttempt(self, mission, tries, leader):
+        self.send("MISSION %i, TRY %i. LEADER %s!" % (mission, tries, leader))
+
+    def onTeamSelected(self, leader, team):
+        self.send("SELECTION %s." % (team))
+
+    def onVoteComplete(self, votes):
+        self.send("VOTED %s." % (', '.join([showYesOrNo(v) for v in votes])))
+
+    def onMissionComplete(self, sabotaged):
+        self.send("SABOTAGED %i." % (sabotaged))
+
+    def onGameComplete(self, win, spies):
+        if win:
+            self.send("RESISTANCE WIN.")
+        else:
+            self.send("SPIES WIN...")
+
+
+
 class ProxyBot(Bot):
 
     def __init__(self, name, client, game, bot):
@@ -146,6 +174,7 @@ class ProxyBot(Bot):
             self.send('SELECT %i?' % (self.state.count))
         else:
             self._select.set(team)
+            self._select = None
 
     def onTeamSelected(self, leader, team):
         self.state.team = team[:]
@@ -154,7 +183,9 @@ class ProxyBot(Bot):
         self.expecting = self.process_VOTED
 
     def vote(self, team):
-        return self._vote.get(timeout=self.TIMEOUT)
+        v = self._vote.get(timeout=self.TIMEOUT)
+        self._vote = None
+        return v   
 
     def process_VOTED(self, msg):
         result = parseYesOrNo(' '.join(msg[1:]))
@@ -174,7 +205,9 @@ class ProxyBot(Bot):
 
     def sabotage(self):
         assert self._sabotage is not None
-        return self._sabotage.get(timeout=self.TIMEOUT)
+        s = self._sabotage.get(timeout=self.TIMEOUT)
+        self._sabotage = None
+        return s 
 
     def process_SABOTAGED(self, msg):
         result = parseYesOrNo(' '.join(msg[1:]))
@@ -216,6 +249,12 @@ class ResistanceCompetitionHandler(CompetitionRunner):
     def echo(self, *args):
         self.client.msg('#resistance', ' '.join([str(a) for a in args]))
 
+    def getNameRole(self, bot):
+        if ':' in bot:
+            name, role = bot.split(':')
+            return (name.lstrip('@'), role[0].lower() == 's')
+        return (bot.lstrip('@'), None)
+
     def run(self, game):
         t = time.time()
         GAMES = 1
@@ -226,7 +265,7 @@ class ResistanceCompetitionHandler(CompetitionRunner):
             GAMES = int(candidates[0])
             candidates = candidates[1:]
         
-        missing = [c for c in candidates if c.strip('@') not in self.competitors]
+        missing = [c for c in candidates if self.getNameRole(c)[0] not in self.competitors]
         if len(missing) != 0:
             self.client.msg('#resistance', 'ERROR. %s was not found in %s.' % (' '.join(missing), self.competitors))
             assert len(missing) == 0, "Not all specified players were found."
@@ -270,14 +309,18 @@ class ResistanceCompetitionHandler(CompetitionRunner):
 
     def _play(self, count, candidates, result):
         channel = "#game-%04i" % (count+1)
-        players = [ProxyBot(bot.lstrip('@'), self.client, channel, bot.lstrip('@') in self.identities) for bot in candidates]
+        names, roles = zip(*[self.getNameRole(bot) for bot in candidates])
+        players = [ProxyBot(name, self.client, channel, name in self.identities) for name in names]
+        if roles.count(None) > 0:
+            roles = None
+
         try:
-            g = self.play(CompetitionRound, players, channel)
+            g = self.play(OnlineRound, players, roles = roles, channel = channel)
             result.put(g.won)
-        except Timeout, t:
+        except Timeout as t:
             result.put(None)
         self.channels.put(count)
-    
+
     def _loop(self):
         # Allocate a pool of 100 channels for playing games.
         self.channels = queue.Queue()
@@ -355,15 +398,35 @@ class ResistanceCompetitionHandler(CompetitionRunner):
                 # First check if this is a report message about sabotages in
                 # games played between humans alone or with bots.
                 if g.channel == channel and msg.params[1].upper() == 'SABOTAGES':
-                    remaining = int(msg.params[2].strip('.,!;')) 
+                    try:
+                        remaining = int(msg.params[2].strip('.,!;')) 
+                    except ValueError:
+                        return
+
                     for bot in g.bots:
                         if bot._sabotage is not None:
-                            bot.send("SABOTAGES %i" % (remaining))
+                            r = bool(remaining > 0)
+                            bot.send("SABOTAGED %s" % showYesOrNo(r))
                             if bot.spy:
-                                bot._sabotage.set(bool(remaining > 0))
+                                bot._sabotage.set(r)
                                 remaining -= 1
                             else:
                                 bot._sabotage.set(False)
+                            bot._sabotage = None
+
+                if g.channel == channel and msg.params[1].upper() == 'VOTES':
+                    votes = [parseYesOrNo(v) for v in msg.params[2:]]
+                    for bot in g.bots:
+                        if bot._vote is not None and bot.name not in self.identities:
+                            v = votes.pop(0)
+                            bot.send("VOTED %s." % showYesOrNo(v))
+                            bot._vote.set(v)
+
+                if g.channel == channel and msg.params[1].upper() == 'SELECTS':
+                    for bot in g.bots:
+                        if bot._select is not None:
+                            bot.send("SELECTED %s" % ' '.join(msg.params[2:]))
+                            bot.process_SELECTED(msg.params)
 
                 # Now check if a bot is expecting a message, and pass it along.
                 for bot in g.bots:
@@ -386,6 +449,7 @@ if __name__ == '__main__':
         server = sys.argv[1]
 
     irc = Client(server, 'aigamedev',  port=6667, local_hostname='localhost')
+    OnlineRound.client = irc
     h = ResistanceCompetitionHandler()
     irc.add_handler(h)
     try:
