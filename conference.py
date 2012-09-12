@@ -2,6 +2,23 @@ import sys
 from competition import CompetitionRunner, getCompetitors
 
 
+class ConferenceRunner(CompetitionRunner):
+
+    def listRoundsOfCompetitors(self):
+        # Second round.  Always the same bots in the games.
+        if len(self.competitors) == 5:
+            for i in range(self.rounds):
+                yield self.competitors
+            return
+
+        # First round.  Evaluate the test bot against known combinations
+        # of others bots, so the results are predictable.
+        for i in range(self.rounds):
+            for competitors in itertools.combinations(self.competitors[1:], 4):
+                yield [self.competitors[0]] + list(competitors)
+        return
+
+
 if __name__ == '__main__':
     if len(sys.argv) <= 2:
         print('USAGE: competition.py 10000 file.BotName [...]')
@@ -14,7 +31,7 @@ if __name__ == '__main__':
     for i in range(10):
       for c in sorted(competitors, key = lambda x: x.__name__):
         print >>sys.stderr, '.',
-        runner = CompetitionRunner([c] + opponents, rounds = 10, quiet = True)
+        runner = ConferenceRunner([c] + opponents, rounds = 10, quiet = True)
         runner.main()
         # score = runner.score(c.__name__)
         # scores[c] = score[2].total

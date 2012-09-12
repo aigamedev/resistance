@@ -78,21 +78,17 @@ class CompetitionRunner(object):
         self.games = [] 
 
     def listRoundsOfCompetitors(self):
-        if len(self.competitors) == 5:
-            for i in range(self.rounds):
-                yield self.competitors
-            return
+        # Make sure there are sufficient entrants if necessary.
+        # WARNING: Results in multiple bot instances per game!
+        pool = self.competitors
+        while len(pool) < 5:
+            pool.extend(self.competitors)
 
-        # Only one instance of each bot per game, assumes more than five.
-        # return random.sample(self.competitors, 5)
-
-        # Here we evaluate the first bot against a random sample of the others.
+        # Evaluate all bots in all possible combinations! 
         for i in range(self.rounds):
-            for competitors in itertools.combinations(self.competitors[1:], 4):
-                yield [self.competitors[0]] + list(competitors)
+            for competitors in itertools.combinations(pool, 5):
+                yield list(competitors)
         return
-
-        # return [self.competitors[0]] + [random.choice(self.competitors[1:]) for x in range(4)]
 
     def main(self):
         global statistics
@@ -103,11 +99,12 @@ class CompetitionRunner(object):
             if hasattr(bot, 'onCompetitionStarting'):
                 bot.onCompetitionStarting(names)
 
+        total = len(list(itertools.combinations(self.competitors, 5))) * self.rounds
         for i, players in enumerate(self.listRoundsOfCompetitors()):
             if not self.quiet:
-                if i % 500 == 0: print >>sys.stderr, '(%02i%%)' % (100*(i+1)/self.rounds)
-                elif i % 100 == 0: print >>sys.stderr, 'o',
-                elif i % 25 == 0: print >>sys.stderr, '.',
+                if (i+1) % 500 == 0: print >>sys.stderr, '(%02i%%)' % (100*(i+1)/total)
+                elif (i+1) % 100 == 0: print >>sys.stderr, 'o',
+                elif (i+1) % 25 == 0: print >>sys.stderr, '.',
 
             for roles in set(itertools.permutations([True, True, False, False, False])):
                 self.play(CompetitionRound, players, roles)
