@@ -80,17 +80,18 @@ class CompetitionRunner(object):
         # Make sure there are sufficient entrants if necessary.
         # WARNING: Results in multiple bot instances per game!
         self.competitors = competitors
-        while len(self.competitors) < 5:
+        while competitors and len(self.competitors) < 5:
             self.competitors.extend(competitors)
 
     def listRoundsOfCompetitors(self):
         """Evaluate all bots in all possible permutations!  If there are more
         games requested, randomly fill up from a next round of permutations."""
         p = list(itertools.permutations(self.competitors, 5))
+
         permutations = []
         while len(permutations) < self.rounds:
             random.shuffle(p)
-            permutations.extend(p)       
+            permutations.extend(p)
         
         for competitors in permutations[:self.rounds]:
             yield list(competitors)
@@ -167,7 +168,7 @@ class CompetitionRunner(object):
             self.echo("TOTAL")
 
         for s in sorted(statistics.items(), key = lambda x: x[1].total().estimate(), reverse = True):
-            self.echo(" ", '{0:<16s}'.format(s[0]), s[1].total())
+            self.echo(" ", '{0:<16s}'.format(s[0]), s[1].total().detail())
         self.echo("")
 
 
