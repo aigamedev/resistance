@@ -1,5 +1,4 @@
 import itertools
-import random
 
 from player import Player
 
@@ -57,13 +56,8 @@ class Game:
         pass
 
 
-    def __init__(self, bots, roles = None):
+    def __init__(self, bots, roles):
         self.state = State()        
-
-        # Randomly assign the roles based on the player index.
-        if roles is None:
-            roles = [True, True, False, False, False]
-            random.shuffle(roles)
 
         # Create Bot instances based on the constructor passed in.
         self.bots = [p(self.state, i, r) for p, r, i in zip(bots, roles, range(1, len(bots)+1))]
@@ -74,9 +68,6 @@ class Game:
         # Configuration for the game itself.
         self.participants = [2, 3, 2, 3, 3]
         self.leader = itertools.cycle(self.state.players) 
-        # Random starting leader!
-        for i in range(random.randint(0, 4)):
-            self.leader.next()
 
     def run(self):
         """Main entry point for the resistance game.  Once initialized call this to 

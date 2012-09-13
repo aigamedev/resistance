@@ -3,6 +3,7 @@
 import itertools
 import importlib
 import random
+import math
 import sys
 
 from player import Bot
@@ -71,24 +72,28 @@ class CompetitionRound(Game):
 
 class CompetitionRunner(object):
 
-    def __init__(self, competitors, rounds = 10000, quiet = False):
-        self.competitors = competitors
+    def __init__(self, competitors, rounds, quiet = False):
         self.rounds = rounds
         self.quiet = quiet
         self.games = [] 
 
-    def listRoundsOfCompetitors(self):
         # Make sure there are sufficient entrants if necessary.
         # WARNING: Results in multiple bot instances per game!
-        pool = self.competitors
-        while len(pool) < 5:
-            pool.extend(self.competitors)
+        self.competitors = competitors
+        while len(self.competitors) < 5:
+            self.competitors.extend(competitors)
 
-        # Evaluate all bots in all possible combinations! 
-        for i in range(self.rounds):
-            for competitors in itertools.combinations(pool, 5):
-                yield list(competitors)
-        return
+    def listRoundsOfCompetitors(self):
+        """Evaluate all bots in all possible permutations!  If there are more
+        games requested, randomly fill up from a next round of permutations."""
+        p = list(itertools.permutations(self.competitors, 5))
+        permutations = []
+        while len(permutations) < self.rounds:
+            random.shuffle(p)
+            permutations.extend(p)       
+        
+        for competitors in permutations[:self.rounds]:
+            yield list(competitors)
 
     def main(self):
         global statistics
@@ -99,10 +104,9 @@ class CompetitionRunner(object):
             if hasattr(bot, 'onCompetitionStarting'):
                 bot.onCompetitionStarting(names)
 
-        total = len(list(itertools.combinations(self.competitors, 5))) * self.rounds
         for i, players in enumerate(self.listRoundsOfCompetitors()):
             if not self.quiet:
-                if (i+1) % 500 == 0: print >>sys.stderr, '(%02i%%)' % (100*(i+1)/total)
+                if (i+1) % 500 == 0: print >>sys.stderr, '(%02i%%)' % (100*(i+1)/self.rounds)
                 elif (i+1) % 100 == 0: print >>sys.stderr, 'o',
                 elif (i+1) % 25 == 0: print >>sys.stderr, '.',
 

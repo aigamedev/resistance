@@ -68,6 +68,28 @@ class RandomBot(Bot):
         return random.choice([True, False])
 
 
+class Neighbor(Bot):
+    """An AI that picks and votes for its neighbours and specifically does not
+    use randomness in its decision-making."""
+
+    @property
+    def neighbors(self):
+        n = self.game.players[self.index:] + self.game.players[0:self.index]
+        return n
+
+    def select(self, players, count):
+        return self.neighbors[0:count]
+
+    def vote(self, team):
+        n = self.neighbors[0:len(team)] + [self]
+        for p in team:
+            if not p in n: return False
+        return True
+
+    def sabotage(self):
+        return len(self.game.team) == 2 or self.game.turn > 3
+
+
 class Deceiver(Bot):
     """A tricky bot that's good at pretending being resistance as a spy."""
 

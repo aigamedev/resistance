@@ -1,4 +1,5 @@
 import sys
+import itertools
 from competition import CompetitionRunner, getCompetitors
 
 

@@ -312,7 +312,9 @@ class ResistanceCompetitionHandler(CompetitionRunner):
         names, roles = zip(*[self.getNameRole(bot) for bot in candidates])
         players = [ProxyBot(name, self.client, channel, name in self.identities) for name in names]
         if roles.count(None) > 0:
-            roles = None
+            import random
+            roles = [True, True, False, False, False]
+            random.shuffle(roles)
 
         try:
             g = self.play(OnlineRound, players, roles = roles, channel = channel)
