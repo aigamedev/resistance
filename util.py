@@ -19,6 +19,15 @@ class Variable(object):
         else:
             return 0.5
 
+    def value(self):
+        n_prime = self.samples + 3.84 # 95% confidence interval
+        return (self.total + (3.84 * 0.5)) / n_prime
+
+    def error(self):
+        n_prime = self.samples + 3.84 # 95% confidence interval
+        value = self.value()
+        return 1.96 * math.sqrt(value * (1.0 - value) / n_prime)
+
     # Error calculation courtesy of idmillington.
     def detail(self):
         """We're dealing with potential results at 0% or 100%, so use an
@@ -27,11 +36,9 @@ class Variable(object):
         too close to the extremes). Note this is still degenerate when the
         number of samples is very small, and may give an upper bound > 100%."""
 
-        n_prime = self.samples + 3.84 # 95% confidence interval
-        value = (self.total + (3.84 * 0.5)) / n_prime
-        error = 1.96 * math.sqrt(value * (1.0 - value) / n_prime)
-        return "{:5.2f}% (e={:4.2f} n={:<4d})".format(
-            value*100, error*100, int(self.samples)
+
+        return "{:4.1f}% (e={:4.2f} n={:<4d})".format(
+            self.value()*100, self.error()*100, int(self.samples)
         )
 
     def __repr__(self):
@@ -39,7 +46,7 @@ class Variable(object):
             value = 100.0 * float(self.total) / float(self.samples)
             if value == 100.0:
                 return "100.0%"
-            return "{:5.2f}%".format(value)
+            return "{:4.1f}%".format(value)
         else:
             return "   N/A"
 

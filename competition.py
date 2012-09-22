@@ -83,18 +83,22 @@ class CompetitionRunner(object):
         while competitors and len(self.competitors) < 5:
             self.competitors.extend(competitors)
 
-    def listRoundsOfCompetitors(self):
+    def listGameSelections(self):
         """Evaluate all bots in all possible permutations!  If there are more
         games requested, randomly fill up from a next round of permutations."""
-        p = list(itertools.permutations(self.competitors, 5))
+        p = []
+        r = set(itertools.permutations([True, True, False, False, False]))
+        for players in itertools.permutations(self.competitors, 5):
+            for roles in r:
+                p.append((players, roles))
 
         permutations = []
         while len(permutations) < self.rounds:
             random.shuffle(p)
             permutations.extend(p)
         
-        for competitors in permutations[:self.rounds]:
-            yield list(competitors)
+        for players, roles in permutations[:self.rounds]:
+            yield (players, roles)
 
     def main(self):
         global statistics
@@ -105,14 +109,13 @@ class CompetitionRunner(object):
             if hasattr(bot, 'onCompetitionStarting'):
                 bot.onCompetitionStarting(names)
 
-        for i, players in enumerate(self.listRoundsOfCompetitors()):
+        for i, (players, roles) in enumerate(self.listGameSelections()):
             if not self.quiet:
                 if (i+1) % 500 == 0: print >>sys.stderr, '(%02i%%)' % (100*(i+1)/self.rounds)
                 elif (i+1) % 100 == 0: print >>sys.stderr, 'o',
                 elif (i+1) % 25 == 0: print >>sys.stderr, '.',
 
-            for roles in set(itertools.permutations([True, True, False, False, False])):
-                self.play(CompetitionRound, players, roles)
+            self.play(CompetitionRound, players, roles)
 
     def play(self, GameType, players, roles = None, channel = None):
         g = GameType(players, roles)
@@ -144,6 +147,13 @@ class CompetitionRunner(object):
             if results[i][0] == name:
                 return i
         return None
+
+    def last(self):
+        results = sorted(statistics, key = lambda x: statistics[x].total().estimate(), reverse = True)
+        bot = [c for c in self.competitors if c.__name__ == results[-1]][0]
+        other = [c for c in self.competitors if c.__name__ == results[-2]][0]
+        return (bot, statistics[results[-1]].total()),                  \
+               (other, statistics[results[-2]].total())
 
     def show(self, summary = False):
         global statistics

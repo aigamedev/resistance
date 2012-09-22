@@ -4,52 +4,37 @@ import itertools
 from competition import CompetitionRunner, getCompetitors
 
 
-class ConferenceRunner(CompetitionRunner):
-
-    def listRoundsOfCompetitors(self):
-        # Evaluate the test bot against known combinations
-        # of others bots, so the results are predictable.
-        for i in range(self.rounds):
-            for competitors in itertools.combinations(self.competitors[1:], 4):
-                print >>sys.stderr, '.',
-                for games in itertools.permutations([self.competitors[0]] + list(competitors)):
-                    yield games
-        return
-
-
 if __name__ == '__main__':
     if len(sys.argv) <= 2:
         print('USAGE: competition.py 10000 file.BotName [...]')
         sys.exit(-1)
 
     competitors = getCompetitors(sys.argv[2:])
-    opponents = getCompetitors(['bots.RuleFollower', 'bots.Deceiver', 'bots.Jammer', \
-                                'bots.Hippie', 'bots.Deceiver',                      \
-                                # 'aigd.Statistician', 'aigd.LogicalBot',              \
-                                #'bots.Neighbor'
-                                ])
-
-    scores = {}
-    for i in range(1):
-      for c in sorted(competitors, key = lambda x: x.__name__):
-        t = time()
-        print >>sys.stderr, '{0:<12s}'.format(c.__name__),
-        runner = ConferenceRunner([c] + opponents, rounds = 1, quiet = True)
+    opponents = getCompetitors([# 'bots.RandomBot', 'bots.RuleFollower', 'bots.Deceiver', 'bots.Jammer', 'bots.Hippie', 'bots.Neighbor',
+                                'aigd.Statistician', 'aigd.LogicalBot'])
+    
+    pool = competitors + opponents
+    rnd = 1
+    while len(pool) >= 5:
+        r = int(sys.argv[1])
+        if len(pool) == 5:
+            runner = CompetitionRunner(pool, rounds = int(r * 2.5), quiet = False)
+        else:
+            runner = CompetitionRunner(pool, rounds = r, quiet = True)
         runner.main()
-        score = runner.score(c.__name__)
-        scores[c] = score[2]
-        # scores.setdefault(c, 0)
-        # scores[c] += runner.rank(c.__name__)
-        print >>sys.stderr, 'o', "t=%3.1fs" % (time() - t)
-
-    print "\n\nCOMPETITION ROUND #1"
-    results = sorted(scores.items(), key = lambda x: x[1].estimate(), reverse = True)
-    for c in results:
-        print ' ', '{0:<16s}'.format(c[0].__name__), c[1].detail()
-
-    print "\n"
-    runner = CompetitionRunner([b for b, r in results[:5]], rounds = int(sys.argv[1]), quiet = False)
-    runner.main()
-    print "\n\nCOMPETITION ROUND #2",
-    runner.show(summary=True)
+    
+        if len(pool) == 5:
+            runner.show(summary=True)
+            break
+        else:
+            last, other = runner.last()
+            print "ROUND #%i: Eliminated %s." % (rnd, last[0].__name__),
+            if last[1].estimate() + last[1].error() < other[1].estimate()     \
+            and other[1].estimate() + other[1].error() > last[1].estimate():
+                print "(approved)"
+            else:
+                print "(suspect %s)" % (other[0].__name__)
+            print " %s vs %s" % (last[1].detail(), other[1].detail())
+            pool.remove(last[0])
+        rnd += 1
 
