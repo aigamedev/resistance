@@ -86,6 +86,8 @@ class CompetitionRunner(object):
     def listGameSelections(self):
         """Evaluate all bots in all possible permutations!  If there are more
         games requested, randomly fill up from a next round of permutations."""
+        if not self.competitors: raise StopIteration 
+
         p = []
         r = set(itertools.permutations([True, True, False, False, False]))
         for players in itertools.permutations(self.competitors, 5):
@@ -109,6 +111,7 @@ class CompetitionRunner(object):
             if hasattr(bot, 'onCompetitionStarting'):
                 bot.onCompetitionStarting(names)
 
+        print >>sys.stderr, "Running competition with %i bots." % (len(self.competitors))
         for i, (players, roles) in enumerate(self.listGameSelections()):
             if not self.quiet:
                 if (i+1) % 500 == 0: print >>sys.stderr, '(%02i%%)' % (100*(i+1)/self.rounds)
@@ -169,7 +172,7 @@ class CompetitionRunner(object):
         if not summary:
             self.echo("SPIES\t\t\t\t(voted,\t\tselected)")
             for s in sorted(statistics.items(), key = lambda x: x[1].spyWins.estimate(), reverse = True):
-                self.echo(" ", '{0:<16s}'.format(s[0]), s[1].spyWins, "\t", s[1].spyVoted, "\t", s[1].spySelected)
+                self.echo(" ", '{0:<16s}'.format(s[0]), s[1].spyWins, "\t", s[1].spyVoted, "\t\t", s[1].spySelected)
 
             self.echo("RESISTANCE\t\t\t(vote,\t\tselect)")
             for s in sorted(statistics.items(), key = lambda x: x[1].resWins.estimate(), reverse = True):
@@ -209,6 +212,11 @@ if __name__ == '__main__':
     if len(sys.argv) <= 2:
         print('USAGE: competition.py 10000 file.BotName [...]')
         sys.exit(-1)
+
+    for i, arg in enumerate(sys.argv[2:]):
+        if '/' not in arg: continue
+        sys.path.append(arg)
+        del sys.argv[2+i]
 
     competitors = getCompetitors(sys.argv[2:])
     runner = CompetitionRunner(competitors, int(sys.argv[1]))

@@ -37,7 +37,7 @@ class Variable(object):
         number of samples is very small, and may give an upper bound > 100%."""
 
 
-        return "{:4.1f}% (e={:4.2f} n={:<4d})".format(
+        return "{:4.1f}% (e={:4.2f} n={:d})".format(
             self.value()*100, self.error()*100, int(self.samples)
         )
 
