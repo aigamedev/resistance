@@ -17,11 +17,16 @@ class CompetitionStatistics:
     def __init__(self):
         self.resWins = Variable()
         self.spyWins = Variable()
-        self.votesRes = Variable()
-        self.votesSpy = Variable()
+        self.resVotesRes = Variable()
+        self.resVotesSpy = Variable()
+        self.spyVotesRes = Variable()
+        self.spyVotesSpy = Variable()
         self.spyVoted = Variable()
+        self.resVoted = Variable()
         self.spySelected = Variable()
-        self.selections = Variable()
+        self.resSelected = Variable()
+        self.spySelection = Variable()
+        self.resSelection = Variable()
 
     def total(self):
         return Variable(
@@ -34,40 +39,54 @@ class CompetitionRound(Game):
 
     def onPlayerVoted(self, player, vote, leader, team):
         global statistics
-        if player.spy:
-            return
-
-        spies = [t for t in team if t.spy]
-
         statistics.setdefault(player.name, CompetitionStatistics())
         s = statistics[player.name]
-        # When there are no spies, we expect support.
-        if not spies:    
-            s.votesRes.sample(int(vote))
-        # For missions with spies, we expect down vote.
-        else:
-            s.votesSpy.sample(int(not vote))
-
-        # Spies on the mission hope to be not detected.
-        for spy in spies:
-            statistics.setdefault(spy.name, CompetitionStatistics())
-            s = statistics[spy.name]
-            s.spyVoted.sample(int(vote))
-   
-    def onPlayerSelected(self, player, team):
-        global statistics
-        if player.spy:
-            return
 
         spies = [t for t in team if t.spy]
+        if player.spy:
+            # When there are spies, we expect support.
+            if spies:    
+                s.spyVotesRes.sample(int(vote))
+            # For missions without spies, we expect down vote.
+            else:
+                s.spyVotesSpy.sample(int(not vote))
+            return
+
+        # When there are no spies, we expect support.
+        if not spies:    
+            s.resVotesRes.sample(int(vote))
+        # For missions with spies, we expect down vote.
+        else:
+            s.resVotesSpy.sample(int(not vote))
+
+        # Everyone on the mission hopes to be approved.
+        for p in team:
+            statistics.setdefault(p.name, CompetitionStatistics())
+            s = statistics[p.name]
+            if p.spy:
+                s.spyVoted.sample(int(vote))
+            else:
+                s.resVoted.sample(int(vote))
+   
+    def onPlayerSelected(self, player, team):
+        # TODO: Detailed statistics indicating selection by each other
+        # player, and whether or not the other is playing as spy.
+        global statistics
+        spies = [t for t in team if t.spy]
+
         statistics.setdefault(player.name, CompetitionStatistics())
-        statistics[player.name].selections.sample(int(len(spies) == 0))
+        if player.spy:
+            statistics[player.name].spySelection.sample(int(len(spies) > 0))
+        else:
+            statistics[player.name].resSelection.sample(int(len(spies) == 0))
 
         for bot in self.bots:
             statistics.setdefault(bot.name, CompetitionStatistics())
             s = statistics[bot.name]
             if bot.spy:
                 s.spySelected.sample(int(bot in team))
+            else:
+                s.resSelected.sample(int(bot in team))
 
 
 class CompetitionRunner(object):
@@ -111,7 +130,8 @@ class CompetitionRunner(object):
             if hasattr(bot, 'onCompetitionStarting'):
                 bot.onCompetitionStarting(names)
 
-        print >>sys.stderr, "Running competition with %i bots." % (len(self.competitors))
+        if not self.quiet:
+            print >>sys.stderr, "Running competition with %i bots." % (len(self.competitors))
         for i, (players, roles) in enumerate(self.listGameSelections()):
             if not self.quiet:
                 if (i+1) % 500 == 0: print >>sys.stderr, '(%02i%%)' % (100*(i+1)/self.rounds)
@@ -170,14 +190,13 @@ class CompetitionRunner(object):
             return
 
         if not summary:
-            self.echo("SPIES\t\t\t\t(voted,\t\tselected)")
+            self.echo("SPIES\t\t\t\t(vote,\t\t voted,\t\t selected,\t selection)")
             for s in sorted(statistics.items(), key = lambda x: x[1].spyWins.estimate(), reverse = True):
-                self.echo(" ", '{0:<16s}'.format(s[0]), s[1].spyWins, "\t", s[1].spyVoted, "\t\t", s[1].spySelected)
+                self.echo(" ", '{0:<16s}'.format(s[0]), s[1].spyWins, "\t", s[1].spyVotesRes, s[1].spyVotesSpy, "\t", s[1].spyVoted, "\t\t", s[1].spySelected, "\t\t", s[1].spySelection)
 
-            self.echo("RESISTANCE\t\t\t(vote,\t\tselect)")
+            self.echo("RESISTANCE\t\t\t(vote,\t\t voted,\t\t selected,\t selection)")
             for s in sorted(statistics.items(), key = lambda x: x[1].resWins.estimate(), reverse = True):
-                self.echo(" ", '{0:<16s}'.format(s[0]), s[1].resWins, "\t", s[1].votesRes, s[1].votesSpy, "\t", s[1].selections)
-
+                self.echo(" ", '{0:<16s}'.format(s[0]), s[1].resWins, "\t", s[1].resVotesRes, s[1].resVotesSpy, "\t", s[1].resVoted, "\t\t", s[1].resSelected, "\t\t", s[1].resSelection)
             self.echo("TOTAL")
 
         for s in sorted(statistics.items(), key = lambda x: x[1].total().estimate(), reverse = True):
@@ -213,10 +232,9 @@ if __name__ == '__main__':
         print('USAGE: competition.py 10000 file.BotName [...]')
         sys.exit(-1)
 
-    for i, arg in enumerate(sys.argv[2:]):
-        if '/' not in arg: continue
+    for arg in [a for a in sys.argv if '/' in a]:
         sys.path.append(arg)
-        del sys.argv[2+i]
+        sys.argv.remove(arg)
 
     competitors = getCompetitors(sys.argv[2:])
     runner = CompetitionRunner(competitors, int(sys.argv[1]))

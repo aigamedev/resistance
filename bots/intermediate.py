@@ -9,7 +9,65 @@ def permutations(config):
     return list(set(itertools.permutations(config)))
 
 
-class Bounder(Bot):
+class Simpleton(Bot):
+
+    def onGameRevealed(self, players, spies):
+        self.players = players
+        self.spies = spies
+
+        self.configurations = permutations([True, True, False, False])
+
+    def getSpies(self, config):
+        return [player for player, spy in zip(self.others(), config) if spy]
+
+    def getResistance(self, config):
+        return [player for player, spy in zip(self.others(), config) if not spy]
+
+    def _validate(self, config, team, sabotaged):
+        spies = [s for s in team if s in self.getSpies(config)]
+        return len(spies) >= sabotaged
+
+    def select(self, players, count):
+        if self.configurations:
+            # Pick one of the many options first, who knows...    
+            config = self._select(self.configurations)
+            # Now pick some random players with or without myself.
+            return random.sample([self] + self.getResistance(config), count)
+        else:
+            assert self.spy
+            return [self] + random.sample(self.others(), count - 1)
+
+    def _select(self, configurations):
+        """This is a hook for inserting more advanced reasoning on top of the
+        maximal amount of logical reasoning you can perform."""
+        return random.choice(configurations)
+        
+    def _acceptable(self, team):
+        """Determine if this team is an acceptable one to vote for..."""
+        current = [c for c in self.configurations if self._validate(c, team, 0)]
+        return bool(len(current) > 0)
+
+    def vote(self, team): 
+        # If it's not acceptable, then we have to shoot it down.
+        if not self._acceptable(team):
+            return False
+        # Otherwise we randomly pick a course of action, who knows?
+        else:
+            return self._vote(team)
+
+    def _vote(self, team):
+        """This is a hook for inserting more complex behavior once logical
+        reasoning has been performed."""
+        return random.choice([True, False])
+
+    def onMissionComplete(self, sabotaged):
+        self.configurations = [c for c in self.configurations if self._validate(c, self.game.team, sabotaged)]
+
+    def sabotage(self):
+        return self.game.turn > 1
+
+
+class Bounder(Simpleton):
     """Idea of upper and lower bounds shamelessly stolen from Peter Cowling. :-)
        This is an implementation of his bot for comparison and modeling."""
 
@@ -32,13 +90,7 @@ class Bounder(Bot):
         return [self] + random.sample(self.getResistance(config), count-1)
     
     def vote(self, team): 
-        # As a spy, vote for all missions that include one spy!
-        # TODO: Vote up as long as we're compatible with one or
-        # more configurations?
-        # if self.spy:
-        #    return len([p for p in team if p in self.spies]) > 0
-
-        # Then determine if this is an acceptable thing to vote for...
+        # Determine if this is an acceptable thing to vote for...
         def acceptable(configurations, optimistic):
             current = [c for c in configurations if self._validate(c, team, 0, optimistic)]
             return bool(len(current) > 0)
@@ -55,12 +107,6 @@ class Bounder(Bot):
         # Speculation about votes does not guarantee anything, so we exclude
         # it here. See git history for details, or other bots like Invalidator.
         pass
-
-    def getSpies(self, config):
-        return [player for player, spy in zip(self.others(), config) if spy]
-
-    def getResistance(self, config):
-        return [player for player, spy in zip(self.others(), config) if not spy]
 
     def _validate(self, config, team, sabotaged, optimistic):
         spies = [s for s in team if s in self.getSpies(config)]
