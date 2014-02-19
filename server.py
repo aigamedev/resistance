@@ -1,29 +1,3 @@
-# COMPETITION
-# - Check current games for players disconnecting and invalidate them.
-# - Mark bots that timed out and punish them for it -- or notify channel.
-# - (DONE) Check for bots timing out and cancel the game...
-# - (DONE) Output the statistics of the competition that was just run.
-# - (DONE) Performance checks for running games to try to improve simulations.
-# - (DONE) Allow specifying a number of games to run, and their permutations.
-# - (DONE) Run multiple games in parallel in multiple greenlets for speed.
-# - (DONE) Let the server detect if the bot is already in the private channel.
-# - (DONE) Have clients detect if the server disconnects or leaves a channel.
-# - For speed, use a constant set of bot channels rather than game channels.
-# - For speed, run multiple games with the same bots, different configurations. 
-
-# HUMAN PLAY
-# - Have bots respond to questions about suspicion levels of players.
-# - Use custom name channels for IRC clients acting as proxy for real players.
-# - Provide a HELP command that provides some contextual explanation.
-# - (DONE) Let bots output debug explanations for select & vote via self.log.
-# - (DONE) In mixed human/bot games, allow moderator to type result of mission.
-# - (DONE) Check for valid players when requesting specific games.
-# - (DONE) Simplify most responses to avoid the need for commands altogether.
-# - (DONE) Parse human input better for SELECT list and the yes/no responses.
-# - (DONE) Index players and channels from [1..5] rather than starting at zero.
-# - (DONE) Require a sabotage response from humans, always to make it fair.
-# - Handle renaming of clients so the player list is up-to-date.
-
 import sys
 import time
 import random
@@ -445,12 +419,18 @@ class ResistanceCompetitionHandler(CompetitionRunner):
  
 
 if __name__ == '__main__':
-    
-    server = 'localhost'
-    if len(sys.argv) > 1:
-        server = sys.argv[1]
+    import argparse
 
-    irc = Client(server, 'aigamedev',  port=6667, local_hostname='localhost')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--server', type=str, required=False, default='irc.aigamedev.com',
+                help = "IRC server name to connect to hosting running games.") 
+    parser.add_argument('--port', type=int, required=False, default=6667,
+                help = "Port of the IRC server to connect to.")
+    parser.add_argument('--name', type=str, required=False, default='aigamedev',
+                help = "Name of the IRC client that connects to the server.")
+    args = parser.parse_args()
+
+    irc = Client(args.server, args.name,  port=args.port, local_hostname='localhost')
     OnlineRound.client = irc
     h = ResistanceCompetitionHandler()
     irc.add_handler(h)
@@ -459,4 +439,31 @@ if __name__ == '__main__':
         irc.join()
     except KeyboardInterrupt:
         h.upcoming.put(([], None))
+
+
+# COMPETITION
+# - Check current games for players disconnecting and invalidate them.
+# - Mark bots that timed out and punish them for it -- or notify channel.
+# - (DONE) Check for bots timing out and cancel the game...
+# - (DONE) Output the statistics of the competition that was just run.
+# - (DONE) Performance checks for running games to try to improve simulations.
+# - (DONE) Allow specifying a number of games to run, and their permutations.
+# - (DONE) Run multiple games in parallel in multiple greenlets for speed.
+# - (DONE) Let the server detect if the bot is already in the private channel.
+# - (DONE) Have clients detect if the server disconnects or leaves a channel.
+# - For speed, use a constant set of bot channels rather than game channels.
+# - For speed, run multiple games with the same bots, different configurations. 
+
+# HUMAN PLAY
+# - Have bots respond to questions about suspicion levels of players.
+# - Use custom name channels for IRC clients acting as proxy for real players.
+# - Provide a HELP command that provides some contextual explanation.
+# - (DONE) Let bots output debug explanations for select & vote via self.log.
+# - (DONE) In mixed human/bot games, allow moderator to type result of mission.
+# - (DONE) Check for valid players when requesting specific games.
+# - (DONE) Simplify most responses to avoid the need for commands altogether.
+# - (DONE) Parse human input better for SELECT list and the yes/no responses.
+# - (DONE) Index players and channels from [1..5] rather than starting at zero.
+# - (DONE) Require a sabotage response from humans, always to make it fair.
+# - Handle renaming of clients so the player list is up-to-date.
 

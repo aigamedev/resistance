@@ -1,5 +1,4 @@
 import random
-import logging
 
 from player import Bot 
 
@@ -10,7 +9,7 @@ class Bounder(Bot):
         Bot.__init__(self, "Bounder", index, spy)
         self.index = index
         self.spy = spy
-        logging.basicConfig(filename='Bounder.log',filemode = 'w',level=logging.ERROR)
+        # logging.basicConfig(filename='Bounder.log',filemode = 'w',level=logging.ERROR)
         if spy: 
             self.strong_configs = self.weak_configs = [] # modelling opponents irrelevant for spies
         else: 
@@ -91,9 +90,9 @@ class Bounder(Bot):
                 vote = len([c for c in self.strong_configs if self.compatible(c,ti,0,True)]) > 0
             if vote: votestring = "for"
             else: votestring = "against" 
-            logging.debug("Me: " + str(self.index) + ". Try: " + str(tries) + ". Vote " + votestring + " Team: " + str(ti) \
-                + ". Possible strong configs: " + self.configs_to_string([c for c in self.strong_configs if self.compatible(c,ti,0,True)]) \
-                + ". Possible weak configs: " + self.configs_to_string([c for c in self.weak_configs if self.compatible(c,ti,0,False)]))
+            # logging.debug("Me: " + str(self.index) + ". Try: " + str(tries) + ". Vote " + votestring + " Team: " + str(ti) \
+            #    + ". Possible strong configs: " + self.configs_to_string([c for c in self.strong_configs if self.compatible(c,ti,0,True)]) \
+            #    + ". Possible weak configs: " + self.configs_to_string([c for c in self.weak_configs if self.compatible(c,ti,0,False)]))
             return vote
 
     def onVoteComplete(self, players, votes, team):
@@ -116,12 +115,13 @@ class Bounder(Bot):
             spi = [p.index for p in selectedPlayers]
             self.strong_configs = [c for c in self.strong_configs if self.compatible(c,spi,sabotaged,True)] 
             self.weak_configs = [c for c in self.weak_configs if self.compatible(c,spi,sabotaged,False)] 
-            logging.debug("Me: " + str(self.index) + ". Mission result: " + str(sabotaged) + " for team " + str(spi) +\
-                ". Possible strong configs: " + self.configs_to_string(self.strong_configs) + \
-                ". Possible weak configs: " + self.configs_to_string(self.weak_configs) + "\n")
+            # logging.debug("Me: " + str(self.index) + ". Mission result: " + str(sabotaged) + " for team " + str(spi) +\
+            #    ". Possible strong configs: " + self.configs_to_string(self.strong_configs) + \
+            #    ". Possible weak configs: " + self.configs_to_string(self.weak_configs) + "\n")
 
     def sabotage(self, team):
         return self.spy
 
     def onGameComplete(self, players, spies):
-        logging.debug("-----------------------------------------------\n")
+        # logging.debug("-----------------------------------------------\n")
+        pass

@@ -235,6 +235,14 @@ class ResistanceFactory(protocol.ClientFactory):
 if __name__ == '__main__':
     import importlib
     import sys
+
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--name', type=str, required=False, default='aigamedev',
+                help = "Name of the IRC client that connects to the server.")
+    args = parser.parse_known_args()
+
     
     if len(sys.argv) == 1:
         print('USAGE: client.py file.BotName [...]')

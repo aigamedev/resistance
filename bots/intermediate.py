@@ -10,6 +10,8 @@ def permutations(config):
 
 
 class Simpleton(Bot):
+    """A bot that does logical reasoning based on the known spies and the
+    results from the mission sabotages."""
 
     def onGameRevealed(self, players, spies):
         self.players = players
@@ -56,7 +58,7 @@ class Simpleton(Bot):
             return self._vote(team)
 
     def _vote(self, team):
-        """This is a hook for inserting more complex behavior once logical
+        """This is a hook for providing more complex voting once logical
         reasoning has been performed."""
         return random.choice([True, False])
 
