@@ -9,7 +9,11 @@ from intermediate import Simpleton
 __all__ = ['RandomCheater', 'LogicalCheater']
 
 
-RES_CHEAT_RATIO = 0.7
+# RES_CHEAT_RATIO = 0.7
+RES_CORRECT_DOWNVOTE = 0.7
+RES_CORRECT_UPVOTE = 0.7
+RES_CORRECT_SELECTION = 0.7
+
 SPY_CHEAT_RATIO = 0.7
 
 
