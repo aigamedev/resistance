@@ -52,6 +52,9 @@ class Game(object):
     def onMissionComplete(self, sabotaged):
         pass
 
+    def onAnnouncement(self, source, announcement):
+        pass
+
     def onGameComplete(self, win, spies):
         pass
 
@@ -113,6 +116,11 @@ class Game(object):
     def lost(self):
         return self.state.losses >= self.NUM_LOSSES
 
+    def callback(self, name, *args):
+        for p in self.bots:
+            getattr(p, name)(*args)
+        getattr(self, name)(*args)
+
     def step(self):
         """Single step/turn of the resistance game, which can fail if the voting
         does not have a clear majority."""
@@ -121,9 +129,7 @@ class Game(object):
         self.state.leader = next(self.leader)
         self.state.team = None
         l = self.bots[self.state.leader.index-1]
-        for p in self.bots:
-            p.onMissionAttempt(self.state.turn, self.state.tries, self.state.leader)
-        self.onMissionAttempt(self.state.turn, self.state.tries, self.state.leader)
+        self.callback('onMissionAttempt', self.state.turn, self.state.tries, self.state.leader)
 
         count = self.participants[self.state.turn-1]
         selected = l.select(self.state.players, count)
@@ -139,9 +145,7 @@ class Game(object):
         # Copy the list to make sure no internal data is leaked to the other bots!
         selected = [Player(s.name, s.index) for s in selected]
         self.state.team = set(selected)
-        for p in self.bots:
-            p.onTeamSelected(self.state.leader, selected)
-        self.onTeamSelected(self.state.leader, selected)
+        self.callback('onTeamSelected', self.state.leader, selected)
 
         # Step 2) Notify other bots of the selection and ask for a vote.
         votes = []
@@ -155,41 +159,52 @@ class Game(object):
             score += int(v)
     
         # Step 3) Notify players of the vote result.
+        self.callback('onVoteComplete', votes[:])
+
+        # Continue if there was a clear majority...
+        if score > 2:
+            # Step 4) In this case, run the mission and ask the bots if they want
+            # to go through with the mission or sabotage!
+            sabotaged = 0
+            for s in selected:
+                p = self.bots[s.index-1]
+                result = False
+                if p.spy:
+                    result = p.sabotage()
+                    assert type(result) is bool, "Please return a boolean from %s.sabotage(), not %s." % (p.name, type(result))
+                sabotaged += int(result)
+
+            if sabotaged == 0:
+                self.state.wins += 1
+            else:
+                self.state.losses += 1
+                
+            # Step 5) Pass back the results of the mission to the bots.
+            # Process the team first to make sure any timing of the result
+            # is the same for all player roles, specifically over IRC.
+            for s in selected:
+                p = self.bots[s.index-1]
+                p.onMissionComplete(sabotaged)
+            # Now, with delays taken into account, all other results can be
+            # passed back safely without divulging Spy/Resistance identities.
+            for p in [b for b in self.bots if b not in selected]:
+                p.onMissionComplete(sabotaged)
+            self.onMissionComplete(sabotaged)
+
         for p in self.bots:
-            p.onVoteComplete(votes[:])
-        self.onVoteComplete(votes[:])
+            ann = p.announce()
+            if not ann: continue
 
-        # Bail out if there was no clear majority...
-        if score <= 2:
-            return False 
+            copy = {}
+            assert type(ann) is dict, "Please return a dictionary from %s.announce(), not %s." % (p.name, type(ann))
+            for k, v in ann.items():
+                assert isinstance(k, Player), "Please use Player objects as dictionary key in %s.announce()." % (p.name)
+                assert isinstance(v, float), "Please use floats as dictionary values in %s.announce()." % (p.name)
+                copy[Player(k.name, k.index)] = v
 
-        # Step 4) In this case, run the mission and ask the bots if they want
-        # to go through with the mission or sabotage!
-        sabotaged = 0
-        for s in selected:
-            p = self.bots[s.index-1]
-            result = False
-            if p.spy:
-                result = p.sabotage()
-                assert type(result) is bool, "Please return a boolean from %s.sabotage(), not %s." % (p.name, type(result))
-            sabotaged += int(result)
+            source = Player(p.name, p.index)
+            for other in [o for o in self.bots if o != p]:
+                other.onAnnouncement(source, copy)
+            self.onAnnouncement(source, copy)
 
-        if sabotaged == 0:
-            self.state.wins += 1
-        else:
-            self.state.losses += 1
-            
-        # Step 5) Pass back the results of the mission to the bots.
-        # Process the team first to make sure any timing of the result
-        # is the same for all player roles, specifically over IRC.
-        for s in selected:
-            p = self.bots[s.index-1]
-            p.onMissionComplete(sabotaged)
-        # Now, with delays taken into account, all other results can be
-        # passed back safely without divulging Spy/Resistance identities.
-        for p in [b for b in self.bots if b not in selected]:
-            p.onMissionComplete(sabotaged)
-        self.onMissionComplete(sabotaged)
-
-        return True
-
+        return score > 2

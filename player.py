@@ -120,11 +120,22 @@ class Bot(Player):
         """Publicly state beliefs about the game's state by announcing spy
         probabilities for any combination of players in the game.  This is
         done after each mission completes, and takes the form of a mapping from
-        player index to float.  Not all players must be specified.
+        player to float.  Not all players must be specified, and of course this
+        can be innacurate!
 
-        @return dict[int, float]     Mapping of player index to spy probability.
+        @return dict[Player, float]     Mapping of player to spy probability.
         """
         return {}
+
+    def onAnnouncement(self, source, announcements):
+        """Callback if another player decides to announce beliefs about the
+        game.  This is passed as a potentially incomplete mapping from player
+        to spy probability.
+
+        @param source        Player making the announcement.
+        @param announcements Dictionnary mapping players to spy probabilities.
+        """
+        pass
 
     def onGameComplete(self, win, spies):
         """Callback once the game is complete, and everything is revealed.
