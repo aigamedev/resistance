@@ -67,6 +67,10 @@ class RandomBot(Bot):
         self.log.info("A completely random sabotage.")
         return random.choice([True, False])
 
+    def announce(self):
+        subset = random.sample(self.others(), random.randint(0, len(self.others())))
+        return {p: random.random() for p in subset}
+
 
 class Neighbor(Bot):
     """An AI that picks and votes for its neighbours and specifically does not
