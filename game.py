@@ -3,7 +3,7 @@ import itertools
 from player import Player
 
 
-class State:
+class State(object):
     """Simple game state data-structure that's passed to bots to help reduce
     the amount of book-keeping required.  Your bots can access this via the
     self.game member variable.
@@ -22,7 +22,7 @@ class State:
         self.players = None             # list[Player]: All players in a list.
 
 
-class Game:
+class Game(object):
     """Implementation of the core gameplay of THE RESISTANCE.  This class
     currently only supports games of 5 players."""
 
@@ -76,10 +76,7 @@ class Game:
         # Tell the bots who the spies are if they are allowed to know.
         spies = set([Player(p.name, p.index) for p in self.bots if p.spy])
         for p in self.bots:
-            if p.spy:
-                p.onGameRevealed(self.state.players, spies)
-            else:
-                p.onGameRevealed(self.state.players, set())
+            p.onGameRevealed(self.state.players, spies if p.spy else set())
         self.onGameRevealed(self.state.players, spies)
 
         # Repeat as long as the game hasn't hit the max number of missions.
@@ -134,7 +131,8 @@ class Game:
         # Check the data returned by the bots is in the expected format!
         assert type(selected) is list or type(selected) is set, "Expecting a list as a return value of select()."
         assert len(set(selected)) == count, "The list returned by %s.select() is of the wrong size!" % (l.name)
-        for s in selected: assert isinstance(s, Player), "Please return Player objects in the list from %s.select()." % (l.name)
+        for s in selected:
+            assert isinstance(s, Player), "Please return Player objects in the list from %s.select()." % (l.name)
 
         # Make an internal callback, e.g. to track statistics about selection.
         self.onPlayerSelected(l, [b for b in self.bots if b in selected])

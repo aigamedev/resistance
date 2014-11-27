@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys
 import time
 import random
@@ -200,11 +202,19 @@ class ProxyBot(Bot):
         self.expecting = None
 
     def onGameComplete(self, win, spies):
-        self.send("RESULT %s; SPIES %s." % (showYesOrNo(win), self.bakeTeam(spies)))
+        if not self.spy:
+            self.send("RESULT %s; SPIES %s." % ("Win" if win else "Loss", self.bakeTeam(spies)))
+        else:
+            self.send("RESULT %s." % ("Loss" if win else "Win",))
 
         self.client.send_message(message.Command(self.game, 'PART'))
-        self._part = Event() 
-        self._part.wait()
+
+        # Bots wait for the host to leave the channel for synchronization
+        # purposes, but for humans we can display the results anyway.
+        self._part = Event()
+        if self.bot:
+            self._part.wait()
+
         self.client.send_message(message.Command(self.channel, 'PART'))
 
 
@@ -285,6 +295,12 @@ class ResistanceCompetitionHandler(CompetitionRunner):
         channel = "#game-%04i" % (count+1)
         names, roles = zip(*[self.getNameRole(bot) for bot in candidates])
         players = [ProxyBot(name, self.client, channel, name in self.identities) for name in names]
+
+        # Is the game bot-only and therefore fully automatic?
+        auto = all([(name in self.identities) for name in names])
+        if not auto:
+            self.client.msg('#resistance', 'STARTING in %s' % (channel,))
+
         if roles.count(None) > 0:
             import random
             roles = [True, True, False, False, False]
@@ -316,8 +332,10 @@ class ResistanceCompetitionHandler(CompetitionRunner):
             self.client = client
             client.send_message(message.Join('#resistance'))
             Greenlet.spawn(self._loop)
+
         elif msg.command == 'PING':
             client.send_message(message.Command(msg.params, 'PONG'))
+
         elif msg.command == '353':
             if msg.params[2] != '#resistance':
                 # When joining specific bot private channels, see if the bot is
@@ -328,7 +346,6 @@ class ResistanceCompetitionHandler(CompetitionRunner):
                         if b.channel == msg.params[2] and b._join and not b._join.ready():
                             b._join.set()
                 return
-
             self.competitors = [u.strip('+@') for u in msg.params[3:]]
             self.competitors.remove(client.nick)
 
@@ -343,9 +360,10 @@ class ResistanceCompetitionHandler(CompetitionRunner):
                         if b.channel == channel and b._join:
                             b._join.set()
                             return
-                assert False, "Not waiting for a player to join this channel."
+                print("Not waiting for a player to join this channel.", file=sys.stderr)
             else:
                 self.competitors.append(user)
+
         elif msg.command == 'PART':
             user = msg.prefix.split('!')[0].strip('+@')
             if user == client.nick:
@@ -362,14 +380,19 @@ class ResistanceCompetitionHandler(CompetitionRunner):
                             # synchronization problems when batch processing games.
                             b._part.set()
                             return
+
         elif msg.command == 'PRIVMSG':
+            # Any human may ask this server to run games with available players.
             channel = msg.params[0].lstrip(':')
             if channel == '#resistance':
                 if msg.params[1] == 'PLAY':
                     self.run(' '.join(msg.params[2:]))
                 return
+
+            # Connecting bots always self-identify as bot for future reference.
             if msg.params[1] == 'BOT':
                 self.identities.append(msg.prefix.split('!')[0])
+
             for g in self.games:    
                 # First check if this is a report message about sabotages in
                 # games played between humans alone or with bots.
@@ -456,8 +479,10 @@ if __name__ == '__main__':
 
 # HUMAN PLAY
 # - Have bots respond to questions about suspicion levels of players.
-# - Use custom name channels for IRC clients acting as proxy for real players.
 # - Provide a HELP command that provides some contextual explanation.
+# - (DONE) When game is over show the results without requiring player to leave channel.
+# - (DONE) Show the game channel in #resistance when the players include a human.
+# - (DONE) Show personalized statistics about game that tell you WIN/LOSS.
 # - (DONE) Let bots output debug explanations for select & vote via self.log.
 # - (DONE) In mixed human/bot games, allow moderator to type result of mission.
 # - (DONE) Check for valid players when requesting specific games.

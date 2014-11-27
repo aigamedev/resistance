@@ -116,6 +116,16 @@ class Bot(Player):
         """
         pass
 
+    def announce(self):
+        """Publicly state beliefs about the game's state by announcing spy
+        probabilities for any combination of players in the game.  This is
+        done after each mission completes, and takes the form of a mapping from
+        player index to float.  Not all players must be specified.
+
+        @return dict[int, float]     Mapping of player index to spy probability.
+        """
+        return {}
+
     def onGameComplete(self, win, spies):
         """Callback once the game is complete, and everything is revealed.
         @param win          Boolean if the Resistance won.
