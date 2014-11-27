@@ -51,7 +51,7 @@ class ResistanceClient(object):
         channel = msg.rstrip('.').split(' ')[1]
         self.protocol.join(channel)
 
-    def process_REVEAL(self, reveal, role, players, spies = None):
+    def process_REVEAL(self, reveal, role, players, spies=None):
         # ROLE Resistance.
         index = self.channel.split('-')[-1]
         spy = bool(role.split(' ')[1] == 'Spy')
@@ -128,11 +128,11 @@ class ResistanceClient(object):
             bot.game.losses += 1
         bot.onMissionComplete(sabotaged)
 
-    def process_RESULT(self, result, spies):
+    def process_RESULT(self, result, spies=None):
         bot = self.getBot()
 
         w = bool(result.split(' ')[1] == 'Yes')
-        s = self.makeTeam(spies)
+        s = self.makeTeam(spies) if spies else bot.game.spies
 
         bot.onGameComplete(w, s)
         self.protocol.part(self.channel)
@@ -143,7 +143,18 @@ class ResistanceClient(object):
         if 'SELECT' in args[0].upper():
             selection = bot.select(bot.game.players, 3)
             players = [Player(s.name, s.index) for s in selection]
-            self.reply("QUERY %s" % (players))
+            self.reply("QUERY %s" % (players,))
+
+    def process_ANNOUNCE(self, announce):
+        def bake(p, v):
+            return "%r: %f" % (Player(p.name, p.index), v)
+
+        bot = self.getBot()
+        ann = bot.announce()
+        if ann:
+            self.reply("ANNOUNCED %s." % (', '.join([bake(*a) for a in ann.items()])))
+        else:
+            self.reply("ANNOUNCED.")
 
     def makeTeam(self, team):
         return set([self.makePlayer(t.strip('., ')) for t in team.split(' ')[1:]])
@@ -171,8 +182,9 @@ class ResistanceClient(object):
         self.channel = None
         self.sender = None
 
-    def disconnect(self, user, channel = None):
+    def disconnect(self, user, channel=None):
         for ch, bot in list(self.bots.items()):
+            # print("Bot %r is leaving channel %s." % (bot, ch))
             if user != bot.recipient:
                 continue
             if not channel or ch == channel:
@@ -187,7 +199,7 @@ class ResistanceProtocol(irc.IRCClient):
         return self.factory.nickname
 
     def signedOn(self):
-        print("CONNECTED %s" % (self.nickname))
+        print("CONNECTED %s." % (self.nickname))
         self.client = ResistanceClient(self, self.factory.constructor)
         self.join('#resistance')
         self.msg('aigamedev', 'BOT')
@@ -224,7 +236,7 @@ class ResistanceFactory(protocol.ClientFactory):
         self.nickname = bot.__name__
 
     def clientConnectionLost(self, connector, reason):        
-        print('Connection lost.', reason)
+        print('DISCONNECT %s.' % self.nickname)
         connector.connect()
 
     def clientConnectionFailed(self, connector, reason):
