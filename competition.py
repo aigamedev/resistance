@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from __future__ import print_function
+
 import itertools
 import importlib
 import random
@@ -131,12 +133,17 @@ class CompetitionRunner(object):
                 bot.onCompetitionStarting(names)
 
         if not self.quiet:
-            print >>sys.stderr, "Running competition with %i bots." % (len(self.competitors))
+            print("Running competition with %i bots." % (len(self.competitors)), file=sys.stderr)
+
+        def output(text):
+            sys.stderr.write(text)
+            sys.stderr.flush()
+
         for i, (players, roles) in enumerate(self.listGameSelections()):
             if not self.quiet:
-                if (i+1) % 500 == 0: print >>sys.stderr, '(%02i%%)' % (100*(i+1)/self.rounds)
-                elif (i+1) % 100 == 0: print >>sys.stderr, 'o',
-                elif (i+1) % 25 == 0: print >>sys.stderr, '.',
+                if (i+1) % 500 == 0: output('(%02i%%)' % (100*(i+1)/self.rounds))
+                elif (i+1) % 100 == 0: output('o')
+                elif (i+1) % 25 == 0: output('.')
 
             self.play(CompetitionRound, players, roles)
 

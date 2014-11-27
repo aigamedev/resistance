@@ -121,7 +121,7 @@ class Game:
         does not have a clear majority."""
 
         # Step 1) Pick the leader and ask for a selection of players on the team.
-        self.state.leader = self.leader.next()
+        self.state.leader = next(self.leader)
         self.state.team = None
         l = self.bots[self.state.leader.index-1]
         for p in self.bots:
