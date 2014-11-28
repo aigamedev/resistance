@@ -21,7 +21,7 @@ from game import Game
 
 
 RE_MAPPING = re.compile("([\w\-]*?)\s*[:=]\s*([\d\.]*?)\s*[,;$]")
-CHANNELS = 250
+CHANNELS = 100
 
 
 def showYesOrNo(b):
@@ -319,9 +319,7 @@ class ResistanceCompetitionHandler(CompetitionRunner):
         timeouts = 0
         for i in range(0, GAMES):
             r = results.get()
-            print((i+1) * 100.0 / GAMES,
-                  'UPCOMING:', self.upcoming.qsize(),
-                  'CHANNELS:', self.channels.qsize(), '      ', end='\r')
+
             if r is not None:
                 wins += int(r)
             else:
@@ -360,8 +358,8 @@ class ResistanceCompetitionHandler(CompetitionRunner):
 
             self.channels.put(count)
         except TimeoutError:
-            print("Timeout error for this game...")
-            self.upcoming.put((candidates, result))
+            # self.upcoming.put((candidates, result))
+            result.put(None)
         except Exception as e:
             import traceback
             traceback.print_exc()
