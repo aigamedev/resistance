@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+import multiprocessing
+import collections
 import itertools
 import importlib
 import random
@@ -11,8 +13,6 @@ import sys
 from player import Bot
 from game import Game
 from util import Variable
-
-statistics = {}
 
 
 class CompetitionStatistics:
@@ -32,17 +32,24 @@ class CompetitionStatistics:
 
     def total(self):
         return Variable(
-            self.resWins.total + self.spyWins.total,
-            self.resWins.samples + self.spyWins.samples
-            )
+                self.resWins.total + self.spyWins.total,
+                self.resWins.samples + self.spyWins.samples
+        )
+
+    def __iadd__(self, other):
+        for k, v in self.__dict__.items():
+            v += other.__dict__[k]
+        return self
 
 
 class CompetitionRound(Game):
 
+    def __init__(self, *args):
+        super(CompetitionRound, self).__init__(*args)
+        self.statistics = collections.defaultdict(CompetitionStatistics)
+
     def onPlayerVoted(self, player, vote, leader, team):
-        global statistics
-        statistics.setdefault(player.name, CompetitionStatistics())
-        s = statistics[player.name]
+        s = self.statistics[player.name]
 
         spies = [t for t in team if t.spy]
         if player.spy:
@@ -63,8 +70,7 @@ class CompetitionRound(Game):
 
         # Everyone on the mission hopes to be approved.
         for p in team:
-            statistics.setdefault(p.name, CompetitionStatistics())
-            s = statistics[p.name]
+            s = self.statistics[p.name]
             if p.spy:
                 s.spyVoted.sample(int(vote))
             else:
@@ -73,22 +79,40 @@ class CompetitionRound(Game):
     def onPlayerSelected(self, player, team):
         # TODO: Detailed statistics indicating selection by each other
         # player, and whether or not the other is playing as spy.
-        global statistics
         spies = [t for t in team if t.spy]
-
-        statistics.setdefault(player.name, CompetitionStatistics())
+        
+        s = self.statistics[player.name]
         if player.spy:
-            statistics[player.name].spySelection.sample(int(len(spies) > 0))
+            s.spySelection.sample(int(len(spies) > 0))
         else:
-            statistics[player.name].resSelection.sample(int(len(spies) == 0))
+            s.resSelection.sample(int(len(spies) == 0))
 
         for bot in self.bots:
-            statistics.setdefault(bot.name, CompetitionStatistics())
-            s = statistics[bot.name]
+            s = self.statistics[bot.name]
             if bot.spy:
                 s.spySelected.sample(int(bot in team))
             else:
                 s.resSelected.sample(int(bot in team))
+
+
+def setup():
+    import signal
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+
+def play(args):
+    (players, roles) = args
+    g = CompetitionRound(players, roles)
+    g.channel = None
+    g.run()
+
+    for b in g.bots:
+        s = g.statistics.get(b.name)
+        if b.spy:
+            s.spyWins.sample(int(not g.won))
+        else:
+            s.resWins.sample(int(g.won))
+    return g.statistics
 
 
 class CompetitionRunner(object):
@@ -96,7 +120,7 @@ class CompetitionRunner(object):
     def __init__(self, competitors, rounds, quiet = False):
         self.rounds = rounds
         self.quiet = quiet
-        self.games = [] 
+        self.statistics = collections.defaultdict(CompetitionStatistics)
 
         # Make sure there are sufficient entrants if necessary.
         # WARNING: Results in multiple bot instances per game!
@@ -124,9 +148,6 @@ class CompetitionRunner(object):
             yield (players, roles)
 
     def main(self):
-        global statistics
-        statistics = {}
-
         names = [bot.__name__ for bot in self.competitors]
         for bot in self.competitors:
             if hasattr(bot, 'onCompetitionStarting'):
@@ -136,77 +157,63 @@ class CompetitionRunner(object):
             print("Running competition with %i bots." % (len(self.competitors)), file=sys.stderr)
 
         def output(text):
-            sys.stderr.write(text)
-            sys.stderr.flush()
+            sys.stdout.write(text)
+            sys.stdout.flush()
 
-        for i, (players, roles) in enumerate(self.listGameSelections()):
+        pool = multiprocessing.Pool(multiprocessing.cpu_count(), setup)
+        # pool = itertools
+        for i, stats in enumerate(pool.imap(play, self.listGameSelections())):
+            for p, s in stats.items():
+                self.statistics[p] += s
+
             if not self.quiet:
-                if (i+1) % 500 == 0: output('(%02i%%)' % (100*(i+1)/self.rounds))
-                elif (i+1) % 100 == 0: output('o')
-                elif (i+1) % 25 == 0: output('.')
-
-            self.play(CompetitionRound, players, roles)
-
-    def play(self, GameType, players, roles = None, channel = None):
-        g = GameType(players, roles)
-        g.channel = channel
-        self.games.append(g)
-        g.run()
-        self.games.remove(g)
-
-        for b in g.bots:
-            statistics.setdefault(b.name, CompetitionStatistics())
-            s = statistics.get(b.name)
-            if b.spy:
-                s.spyWins.sample(int(not g.won))
-            else:
-                s.resWins.sample(int(g.won))
-        return g
+                if (i+1) % 100 == 0:  output('(%02i%%)\n' % (100*(i+1)/self.rounds))
+                elif (i+1) % 25 == 0: output('O')
+                elif (i+1) %  5 == 0: output('o')
+                else:                 output('.')
 
     def echo(self, *args):
         print(' '.join([str(a) for a in args]))
 
     def score(self, name):
-        return (statistics[name].spyWins.estimate(),
-                statistics[name].resWins.estimate(),
-                statistics[name].total())
+        return (self.statistics[name].spyWins.estimate(),
+                self.statistics[name].resWins.estimate(),
+                self.statistics[name].total())
 
     def rank(self, name):
-        results = sorted(statistics.items(), key = lambda x: x[1].total().estimate(), reverse = True)
+        results = sorted(self.statistics.items(), key = lambda x: x[1].total().estimate(), reverse=True)
         for i in range(len(results)):
             if results[i][0] == name:
                 return i
         return None
 
     def last(self):
-        results = sorted(statistics, key = lambda x: statistics[x].total().estimate(), reverse = True)
+        results = sorted(self.statistics, key=lambda x: self.statistics[x].total().estimate(), reverse=True)
         bot = [c for c in self.competitors if c.__name__ == results[-1]][0]
         other = [c for c in self.competitors if c.__name__ == results[-2]][0]
-        return (bot, statistics[results[-1]].total()),                  \
-               (other, statistics[results[-2]].total())
+        return (bot, self.statistics[results[-1]].total()),                  \
+               (other, self.statistics[results[-2]].total())
 
     def show(self, summary = False):
-        global statistics
-
         print("")
         for bot in self.competitors:
             if hasattr(bot, 'onCompetitionFinished'):
                 bot.onCompetitionFinished()
 
-        if len(statistics) == 0:
+        if len(self.statistics) == 0:
             return
 
         if not summary:
             self.echo("SPIES\t\t\t\t(vote,\t\t voted,\t\t selected,\t selection)")
-            for s in sorted(statistics.items(), key = lambda x: x[1].spyWins.estimate(), reverse = True):
+            for s in sorted(self.statistics.items(), key = lambda x: x[1].spyWins.estimate(), reverse = True):
                 self.echo(" ", '{0:<16s}'.format(s[0]), s[1].spyWins, "\t", s[1].spyVotesRes, s[1].spyVotesSpy, "\t", s[1].spyVoted, "\t\t", s[1].spySelected, "\t\t", s[1].spySelection)
 
             self.echo("RESISTANCE\t\t\t(vote,\t\t voted,\t\t selected,\t selection)")
-            for s in sorted(statistics.items(), key = lambda x: x[1].resWins.estimate(), reverse = True):
+            for s in sorted(self.statistics.items(), key = lambda x: x[1].resWins.estimate(), reverse = True):
                 self.echo(" ", '{0:<16s}'.format(s[0]), s[1].resWins, "\t", s[1].resVotesRes, s[1].resVotesSpy, "\t", s[1].resVoted, "\t\t", s[1].resSelected, "\t\t", s[1].resSelection)
             self.echo("TOTAL")
 
-        for s in sorted(statistics.items(), key = lambda x: x[1].total().estimate(), reverse = True):
+        for s in sorted(self.statistics.items(), key = lambda x: x[1].total().estimate(), reverse = True):
             self.echo(" ", '{0:<16s}'.format(s[0]), s[1].total().detail())
         self.echo("")
 
@@ -251,4 +258,3 @@ if __name__ == '__main__':
         pass
     finally:
         runner.show()
-

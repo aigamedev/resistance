@@ -47,8 +47,16 @@ class Variable(object):
         if self.samples:
             value = 100.0 * float(self.total) / float(self.samples)
             if value == 100.0:
-                return "100.0%"
+                return "100.%"
             return "{:4.1f}%".format(value)
         else:
             return "   N/A"
 
+    def __cmp__(self, other):
+        return cmp(self.estimate(), other.estimate())
+
+    def __iadd__(self, other):
+        self.total += other.total
+        self.samples += other.samples
+        self.minimum = min(self.minimum, other.minimum)
+        self.maximum = max(self.maximum, other.maximum)
