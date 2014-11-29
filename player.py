@@ -116,6 +116,9 @@ class Bot(Player):
         """
         pass
 
+    def onMissionFailed(self, leader, team):
+        pass
+
     def announce(self):
         """Publicly state beliefs about the game's state by announcing spy
         probabilities for any combination of players in the game.  This is
@@ -127,13 +130,13 @@ class Bot(Player):
         """
         return {}
 
-    def onAnnouncement(self, source, announcements):
+    def onAnnouncement(self, source, announcement):
         """Callback if another player decides to announce beliefs about the
         game.  This is passed as a potentially incomplete mapping from player
         to spy probability.
 
         @param source        Player making the announcement.
-        @param announcements Dictionnary mapping players to spy probabilities.
+        @param announcement  Dictionnary mapping players to spy probabilities.
         """
         pass
 
