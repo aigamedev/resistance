@@ -224,7 +224,7 @@ class ResistanceProtocol(irc.IRCClient):
     def irc_INVITE(self, user, args):
         channel = args[1]
         if '#game-' in channel:
-            self.join(channel) 
+            self.join(channel)
 
 
 class ResistanceFactory(protocol.ClientFactory):
@@ -240,7 +240,7 @@ class ResistanceFactory(protocol.ClientFactory):
         connector.connect()
 
     def clientConnectionFailed(self, connector, reason):
-        print('Connection failed.', reason)
+        print('FAILURE %s.' % self.nickname)
         reactor.stop()
 
 

@@ -76,7 +76,7 @@ class ProxyBot(Bot):
         self.client = client
         self.bot = bot
         if bot:
-            self.TIMEOUT = 2.5
+            self.TIMEOUT = 60.0
         else:
             self.TIMEOUT = None
 
@@ -102,6 +102,7 @@ class ProxyBot(Bot):
         self.client.send_message(message.Join(self.game))
 
         # Use elegant /INVITE command for humans that have better clients.
+        # FIXME: Invitation fails when there's already someone else in the channel.
         self.client.send_message(message.Command([self.name, self.channel], 'INVITE'))
         return self
 
@@ -136,6 +137,7 @@ class ProxyBot(Bot):
         if self.spy:
             s = "; SPIES " + self.bakeTeam(spies)
 
+        print('waiting', self.channel)
         w = self._join.wait() # timeout=self.Timeout
         assert w is not None, "Problem with bot %r joining." % self
         self._join = None
@@ -150,11 +152,15 @@ class ProxyBot(Bot):
         self.expecting = self.process_SELECTED
 
         self.send('SELECT %i!' % (count))
+        if not self.bot:
+            self.send('/me '  + self.expecting.__doc__)
         selection = self._select.get(timeout=self.TIMEOUT)
         self._select = None
         return selection
 
     def process_SELECTED(self, msg):
+        """Type a list of players to select for the team, e.g. `select 1, 2.`"""
+
         if 'select' in msg[1].lower():
             msg = ' '.join(msg[2:])
         else:
@@ -173,6 +179,8 @@ class ProxyBot(Bot):
 
         self.state.team = team[:]
         self.send("VOTE %s?" % (self.bakeTeam(team)))
+        if not self.bot:
+            self.send('/me '  + self.expecting.__doc__)
 
     def vote(self, team):
         v = self._vote.get(timeout=self.TIMEOUT)
@@ -180,6 +188,8 @@ class ProxyBot(Bot):
         return v   
 
     def process_VOTED(self, msg):
+        """Type your vote, for example as `YES` or `NO`."""
+
         result = parseYesOrNo(' '.join(msg[1:]))
         if result is not None:
             assert self._vote is not None
@@ -206,6 +216,9 @@ class ProxyBot(Bot):
         result = parseYesOrNo(' '.join(msg[1:]))
         if result is not None:
             assert self._sabotage is not None
+            if result and not self.spy:
+                self.send("Can't sabotage mission: you are resistance!")
+                result = False
             self._sabotage.set(result)
 
     def onMissionComplete(self, sabotaged):
@@ -271,7 +284,9 @@ class ResistanceCompetitionHandler(CompetitionRunner):
 
     def __init__(self):
         CompetitionRunner.__init__(self, [], 0)
-        self.identities = []
+        self.games = []
+        self.identities = []        
+        self.expecting = None
 
     def echo(self, *args):
         self.client.msg('#resistance', ' '.join([str(a) for a in args]))
@@ -335,6 +350,21 @@ class ResistanceCompetitionHandler(CompetitionRunner):
                 self.client.msg('#resistance', 'PLAYED game in %0.2fs.' % (seconds))
         self.show()
 
+    def play(self, GameType, players, roles, channel):
+        g = GameType(players, roles)
+        g.channel = channel
+        self.games.append(g)
+        g.run()
+        self.games.remove(g)
+
+        for b in g.bots:
+            s = g.statistics.get(b.name)
+            if b.spy:
+                s.spyWins.sample(int(not g.won))
+            else:
+                s.resWins.sample(int(g.won))
+        return g
+
     def _play(self, count, candidates, result):
         try:
             channel = "#game-%05i" % (count+1)
@@ -378,7 +408,7 @@ class ResistanceCompetitionHandler(CompetitionRunner):
 
             index = self.channels.get()
             t = gevent.spawn(self._play, index, candidates, result)
-            gevent.spawn(self.monitor, t)
+            # gevent.spawn(self.monitor, t)
 
     def monitor(self, thread):
         thread.join(timeout=30.0)
@@ -492,14 +522,28 @@ class ResistanceCompetitionHandler(CompetitionRunner):
                     if bot.channel != channel:
                         continue
                     name = 'process_'+msg.params[1].upper()
-                    if name == 'process_COMMENT':
-                        pass
+                    if hasattr(self, name):
+                        process = getattr(self, name)
+                        process(msg.params)
                     elif hasattr(bot, name):
                         process = getattr(bot, name)
                         process(msg.params)
                     elif bot.expecting:
-                        bot.expecting(msg.params)
+                        try:
+                            bot.expecting(msg.params)
+                        except:
+                            # Comments can overflow in multiple lines.
+                            pass
  
+    def process_COMMENT(self, *args):
+        pass
+
+    def process_HELP(self, *args):
+        if self.expecting:
+            self.client.send('/me ' + self.expecting.__doc__)
+        else:
+            self.client.send("No input required at this stage.")
+
 
 if __name__ == '__main__':
     import argparse
@@ -527,6 +571,8 @@ if __name__ == '__main__':
 # COMPETITION
 # - Check current games for players disconnecting and invalidate them.
 # - Mark bots that timed out and punish them for it -- or notify channel.
+# - For speed, use a constant set of bot channels rather than game channels.
+# - For speed, run multiple games with the same bots, different configurations. 
 # - (DONE) Check for bots timing out and cancel the game...
 # - (DONE) Output the statistics of the competition that was just run.
 # - (DONE) Performance checks for running games to try to improve simulations.
@@ -534,12 +580,13 @@ if __name__ == '__main__':
 # - (DONE) Run multiple games in parallel in multiple greenlets for speed.
 # - (DONE) Let the server detect if the bot is already in the private channel.
 # - (DONE) Have clients detect if the server disconnects or leaves a channel.
-# - For speed, use a constant set of bot channels rather than game channels.
-# - For speed, run multiple games with the same bots, different configurations. 
 
 # HUMAN PLAY
 # - Have bots respond to questions about suspicion levels of players.
-# - Provide a HELP command that provides some contextual explanation.
+# - Handle renaming of clients so the player list is up-to-date.
+# - Keep going if there's already a human observer in the bot channel!
+# - Remind humans when they need to type input with a repeat message.
+# - (DONE) Provide a HELP command that provides some contextual explanation.
 # - (DONE) When game is over show the results without requiring player to leave channel.
 # - (DONE) Show the game channel in #resistance when the players include a human.
 # - (DONE) Show personalized statistics about game that tell you WIN/LOSS.
@@ -550,5 +597,3 @@ if __name__ == '__main__':
 # - (DONE) Parse human input better for SELECT list and the yes/no responses.
 # - (DONE) Index players and channels from [1..5] rather than starting at zero.
 # - (DONE) Require a sabotage response from humans, always to make it fair.
-# - Handle renaming of clients so the player list is up-to-date.
-
