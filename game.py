@@ -15,11 +15,26 @@ class State(object):
     def __init__(self):
         self.turn = 1                   # int (1..5): Mission number.
         self.tries = 1                  # int (1..5): Attempt number.
-        self.wins = 0                   # int (1..3): Number of resistance wins.
-        self.losses = 0                 # int (1..3): Number of spy victories.
+        self.wins = 0                   # int (0..3): Number of resistance wins.
+        self.losses = 0                 # int (0..3): Number of spy victories.
         self.leader = None              # Player: Current mission leader.
         self.team = None                # set(Player): Set of players picked.
         self.players = None             # list[Player]: All players in a list.
+
+    def clone(self):
+        s = State()
+        s.__dict__ = self.__dict__.copy()
+        return s
+
+    def __eq__(self, other):
+        return \
+                self.turn == other.turn             \
+            and self.tries == other.tries           \
+            and self.wins == other.wins             \
+            and self.losses == other.losses         \
+            and self.leader == other.leader         \
+            and self.team == other.team             \
+            and self.players == other.players
 
 
 class Game(object):
@@ -30,13 +45,6 @@ class Game(object):
     NUM_WINS = 3
     NUM_LOSSES = 3
 
-    def onPlayerVoted(self, player, vote, leader, team):
-        pass
-   
-    def onPlayerSelected(self, player, team):
-        pass
-
-
     def onGameRevealed(self, players, spies):
         pass
 
@@ -46,10 +54,19 @@ class Game(object):
     def onTeamSelected(self, leader, team):
         pass
 
+    def onPlayerSelected(self, player, team):
+        pass
+
+    def onPlayerVoted(self, player, vote, leader, team):
+        pass
+
     def onVoteComplete(self, votes):
         pass
 
     def onMissionComplete(self, sabotaged):
+        pass
+
+    def onMissionFailed(self, leader, team):
         pass
 
     def onAnnouncement(self, source, announcement):
@@ -70,7 +87,7 @@ class Game(object):
     
         # Configuration for the game itself.
         self.participants = [2, 3, 2, 3, 3]
-        self.leader = itertools.cycle(self.state.players) 
+        self.leader = itertools.cycle(self.state.players)
 
     def run(self):
         """Main entry point for the resistance game.  Once initialized call this to 
@@ -84,7 +101,6 @@ class Game(object):
 
         # Repeat as long as the game hasn't hit the max number of missions.
         while self.state.turn <= self.NUM_TURNS:
-            
             # Some missions will take multiple turns... 
             if self.step():
                 self.state.turn += 1
@@ -135,8 +151,9 @@ class Game(object):
         selected = l.select(self.state.players, count)
 
         # Check the data returned by the bots is in the expected format!
-        assert type(selected) is list or type(selected) is set, "Expecting a list as a return value of select()."
-        assert len(set(selected)) == count, "The list returned by %s.select() is of the wrong size!" % (l.name)
+        assert type(selected) in [list, set, tuple], "Expecting a list|set|tuple as a return value of select(), not %s." % type(selected)
+        assert len(set(selected)) == len(selected), "There were duplicate players returned in the list by %s.select()." % (l.name)
+        assert len(selected) == count, "The list returned by %s.select() is of the wrong size!  Expecting %i was %i." % (l.name, count, len(selected))
         for s in selected:
             assert isinstance(s, Player), "Please return Player objects in the list from %s.select()." % (l.name)
 
@@ -145,15 +162,15 @@ class Game(object):
         # Copy the list to make sure no internal data is leaked to the other bots!
         selected = [Player(s.name, s.index) for s in selected]
         self.state.team = set(selected)
-        self.callback('onTeamSelected', self.state.leader, selected)
+        self.callback('onTeamSelected', self.state.leader, self.state.team)
 
         # Step 2) Notify other bots of the selection and ask for a vote.
         votes = []
         score = 0
         for p in self.bots:
-            v = p.vote(selected[:])
-            self.onPlayerVoted(p, v, l, [b for b in self.bots if b in selected])
+            v = p.vote(set(selected[:]))
             assert type(v) is bool, "Please return a boolean from %s.vote() instead of %s." % (p.name, type(v))
+            self.onPlayerVoted(p, v, l, [b for b in self.bots if b in selected])
 
             votes.append(v)
             score += int(v)
@@ -190,6 +207,9 @@ class Game(object):
             for p in [b for b in self.bots if b not in selected]:
                 p.onMissionComplete(sabotaged)
             self.onMissionComplete(sabotaged)
+
+        else:
+            self.callback('onMissionFailed', self.state.leader, self.state.team)
 
         for p in self.bots:
             ann = p.announce()
