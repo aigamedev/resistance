@@ -23,8 +23,8 @@ def permutations(config):
 
 
 class RandomCheater(Bot):
-    """An AI bot that's perhaps never played before and doesn't understand the
-    rules very well!"""
+    """An AI that can hack the current game implementation and cheat
+    randomly a specified percentage of the time."""
 
     @classmethod
     def cheat_SetRate(cls, res, spy):
@@ -56,10 +56,7 @@ class RandomCheater(Bot):
         return [player for player, spy in zip(self.others(), config) if not spy]
 
     def correct(self):
-        if self.spy:
-            return random.random() <= SPY_CHEAT_RATIO
-        else:
-            return random.random() <= RES_CHEAT_RATIO
+        return random.random() <= (SPY_CHEAT_RATIO if self.spy else RES_CHEAT_RATIO)
 
     def cheat_Select(self, spied, count):
         if not spied:
@@ -114,7 +111,7 @@ class LogicalCheater(Simpleton):
         return RandomCheater.__dict__['vote'](self, team) 
 
     def select(self, players, count):
-        for i in range(10):
+        while True:
             team = RandomCheater.__dict__['select'](self, players, count)
             if self._acceptable(team):
                 break
