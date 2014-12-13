@@ -23,7 +23,9 @@ class ResistanceLogger(logging.Handler):
 
         try:
             msg = self.format(record)
-            self.protocol.msg(self.channel, 'COMMENT %s' % (msg))
+            length = 300 # Maximum line for an IRC message is 510, so split string.
+            for line in [msg[i:i+length] for i in range(0, len(msg), length)]:
+                self.protocol.msg(self.channel, 'COMMENT %s' % (line))
         except (KeyboardInterrupt, SystemExit):
             raise
         except:

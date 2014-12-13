@@ -188,7 +188,7 @@ class ProxyBot(Bot):
         return v   
 
     def process_VOTED(self, msg):
-        """Type your vote, for example as `YES` or `NO`."""
+        """Enter your vote, for example as `YES` or `NO`."""
 
         result = parseYesOrNo(' '.join(msg[1:]))
         if result is not None:
@@ -203,6 +203,8 @@ class ProxyBot(Bot):
             self._sabotage = AsyncResult()
             self.expecting = self.process_SABOTAGED
             self.send("SABOTAGE?")
+            if not self.bot:
+                self.send('/me '  + self.expecting.__doc__)
         else:
             self._sabotage = None
 
@@ -213,6 +215,8 @@ class ProxyBot(Bot):
         return s 
 
     def process_SABOTAGED(self, msg):
+        """Decide whether to sabotage, for typing in `YES` or `NO`."""
+
         result = parseYesOrNo(' '.join(msg[1:]))
         if result is not None:
             assert self._sabotage is not None
@@ -237,11 +241,16 @@ class ProxyBot(Bot):
         self.expecting = self.process_ANNOUNCED
 
         self.send('ANNOUNCE!')
+        if not self.bot:
+            self.send('/me '  + self.expecting.__doc__)
+
         ann = self._announce.get(timeout=self.TIMEOUT)
         self._announce = None
         return ann
 
     def process_ANNOUNCED(self, msg):
+        """Input a list of players and their spy probabilities, e.g. 3: 0.0, 4: 1.0."""
+
         if 'announce' in msg[1].lower():
             msg = ' '.join(msg[2:])
         else:
@@ -586,6 +595,9 @@ if __name__ == '__main__':
 # - Handle renaming of clients so the player list is up-to-date.
 # - Keep going if there's already a human observer in the bot channel!
 # - Remind humans when they need to type input with a repeat message.
+# - If there's a timeout, inform everyone and stop the game cleanly.
+# - If a bot throws an exception, inform everyone and bail out.
+# - Request for announcements after sabotage results are provided.
 # - (DONE) Provide a HELP command that provides some contextual explanation.
 # - (DONE) When game is over show the results without requiring player to leave channel.
 # - (DONE) Show the game channel in #resistance when the players include a human.
