@@ -92,6 +92,11 @@ class ResistanceClient(object):
         # LEADER 1-Random.
         state.leader = self.makePlayer(leader.split(' ')[1])
 
+        state.phase = 1
+        state.team = None
+        state.votes = None
+        state.sabotages = None
+
         bot.onMissionAttempt(state.turn, state.tries, state.leader)
 
     def process_SELECT(self, select):
@@ -104,8 +109,9 @@ class ResistanceClient(object):
     def process_VOTE(self, team):
         # VOTE 1-Random, 2-Hippie, 3-Paranoid.
         bot = self.getBot()
-        bot.game.team = self.makeTeam(team)
+        bot.game.team = self.makeTeam(team)        
         bot.onTeamSelected(bot.game.leader, bot.game.team)
+        bot.game.phase = 2
         result = bot.vote(bot.game.team)
         reply = {True: "Yes", False: "No"}
         self.reply('VOTED %s.' % (reply[result]))
@@ -113,22 +119,31 @@ class ResistanceClient(object):
     def process_VOTES(self, votes):
         bot = self.getBot()
         v = [bool(b.strip(',.') == 'Yes') for b in votes.split(' ')[1:]]
-        bot.onVoteComplete(v)
+        bot.game.votes = v
+        bot.onVoteComplete(v)        
 
     def process_SABOTAGE(self, sabotage):
         bot = self.getBot()
+        bot.game.phase = 3
         result = bot.spy and bot.sabotage()
         reply = {True: "Yes", False: "No"}
         self.reply('SABOTAGED %s.' % (reply[result]))
 
     def process_SABOTAGES(self, sabotages):
         bot = self.getBot()
+        bot.game.phase = 3
         sabotaged = int(sabotages.split(' ')[1])
         if sabotaged == 0:
             bot.game.wins += 1
         else:
             bot.game.losses += 1
+
+        bot.game.sabotages = sabotaged
         bot.onMissionComplete(sabotaged)
+
+        bot.game.turn += 1
+        bot.game.turn = 1
+        bot.game.leader = None
 
     def process_RESULT(self, result, spies=None):
         bot = self.getBot()
@@ -146,12 +161,15 @@ class ResistanceClient(object):
             selection = bot.select(bot.game.players, 3)
             players = [Player(s.name, s.index) for s in selection]
             self.reply("QUERY %s" % (players,))
+        if 'STATE' in args[0].upper():
+            self.reply("QUERY %r" % bot.game)
 
     def process_ANNOUNCE(self, announce):
         def bake(p, v):
             return "%r: %f" % (Player(p.name, p.index), v)
 
         bot = self.getBot()
+        bot.game.phase = 4
         ann = bot.announce()
         if ann:
             self.reply("ANNOUNCED %s." % (', '.join([bake(*a) for a in ann.items()])))
