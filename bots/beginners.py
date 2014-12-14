@@ -85,6 +85,8 @@ class Neighbor(Bot):
         return self.neighbors[0:count]
 
     def vote(self, team):
+        if self.game.tries == 5:
+            return not self.spy
         n = self.neighbors[0:len(team)] + [self]
         for p in team:
             if not p in n: return False

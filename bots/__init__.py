@@ -1,2 +1,2 @@
-from beginners import *
-from intermediate import *
+from .beginners import *
+from .intermediate import *

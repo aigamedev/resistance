@@ -18,9 +18,13 @@ class Simpleton(Bot):
         self.configurations = permutations([True, True, False, False])
 
     def getSpies(self, config):
+        assert len(config) == 4
+        assert all([type(c) is bool for c in config])
         return [player for player, spy in zip(self.others(), config) if spy]
 
     def getResistance(self, config):
+        assert len(config) == 4
+        assert all([type(c) is bool for c in config])
         return [player for player, spy in zip(self.others(), config) if not spy]
 
     def _validateSpies(self, config, team, sabotaged):
@@ -52,7 +56,10 @@ class Simpleton(Bot):
         current = [c for c in self.configurations if self._validateNoSpies(c, team)]
         return bool(len(current) > 0)
 
-    def vote(self, team): 
+    def vote(self, team):
+        if self.game.tries == 5:
+            return not self.spy
+
         # If it's not acceptable, then we have to shoot it down.
         if not self._acceptable(team):
             # self.log.debug("%s: This configuration is not acceptable." % ("SPY" if self.spy else "RST"))
