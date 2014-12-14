@@ -98,52 +98,43 @@ class Game(object):
         pass
 
 
-    def __init__(self, bots, roles):
-        self.state = State()        
+    def __init__(self, bots, roles, state=None):
+        self.state = state or State()
 
         # Create Bot instances based on the constructor passed in.
         self.bots = [p(self.state, i, r) for p, r, i in zip(bots, roles, range(1, len(bots)+1))]
         
         # Maintain a copy of players that includes minimal data, for passing to other bots.
         self.state.players = [Player(p.name, p.index) for p in self.bots]
-    
+        self.state.leader = self.next_leader()
+
         # Configuration for the game itself.
         self.participants = [2, 3, 2, 3, 3]
-        self.leader = itertools.cycle(self.state.players)
 
     def run(self):
         """Main entry point for the resistance game.  Once initialized call this to 
         simulate the game until it is complete."""
 
-        spies = set([Player(p.name, p.index) for p in self.bots if p.spy])
-        if self.state.phase == State.PHASE_PREPARING:
-            # Tell the bots who the spies are if they are allowed to know.            
-            for p in self.bots:
-                p.onGameRevealed(self.state.players, spies if p.spy else set())
-            self.onGameRevealed(self.state.players, spies)
-
-            self.state.phase = State.PHASE_SELECTION
-
         # Repeat as long as the game hasn't hit the max number of missions.
-        while True:
+        while not self.done:
             self.step()
-
-            # If there wasn't an agreement then the spies win.
-            if self.state.tries > self.MAX_TRIES:
-                break
-
-            # If this is the last turn that's it too!
-            if self.state.turn > self.MAX_TURNS:
-                break
-
-            # Determine if either side has won already.
-            if self.won or self.lost:
-                break
         
         # Pass back the results to the bots so they can do some learning!
+        spies = set([Player(p.name, p.index) for p in self.bots if p.spy])
         for p in self.bots:
             p.onGameComplete(self.state.wins >= self.NUM_WINS, spies)
         self.onGameComplete(self.state.wins >= self.NUM_WINS, spies)
+
+    @property
+    def done(self):
+        # If there wasn't an agreement then the spies win.
+        if self.state.tries > self.MAX_TRIES:
+            return True
+        # If this is the last turn that's it too!
+        if self.state.turn > self.MAX_TURNS:
+            return True
+        # Otherwise it's fine to keep going until one side wins.
+        return self.won or self.lost
 
     @property
     def won(self):
@@ -158,10 +149,13 @@ class Game(object):
             getattr(p, name)(*args)
         getattr(self, name)(*args)
 
+    def next_leader(self):
+        li = (self.state.leader.index % len(self.state.players)) if self.state.leader else 0
+        return self.state.players[li]
+
     def do_selection(self):
         """Phase 1) Pick the leader and ask for a selection of players on the team.
-        """        
-        self.state.leader = next(self.leader)
+        """
         self.state.team = None
         self.state.votes = None
         self.state.sabotages = None
@@ -198,7 +192,7 @@ class Game(object):
             assert type(v) is bool, "Please return a boolean from %s.vote() instead of %s." % (p.name, type(v))
             self.onPlayerVoted(p, v, self.state.leader, [b for b in self.bots if b in self.state.team])
             votes.append(v)
-            
+        
         self.state.votes = votes[:]
         self.callback('onVoteComplete', votes[:])
 
@@ -268,6 +262,16 @@ class Game(object):
                 other.onAnnouncement(source, copy)
             self.onAnnouncement(source, copy)
 
+        self.state.leader = self.next_leader()
+        self.state.phase = State.PHASE_SELECTION
+
+    def do_preparation(self):
+        # Tell the bots who the spies are if they are allowed to know.
+        spies = set([Player(p.name, p.index) for p in self.bots if p.spy])
+        for p in self.bots:
+            p.onGameRevealed(self.state.players, spies if p.spy else set())
+        self.onGameRevealed(self.state.players, spies)
+
         self.state.phase = State.PHASE_SELECTION
 
     def step(self):
@@ -282,3 +286,7 @@ class Game(object):
             self.do_mission()
         elif self.state.phase == State.PHASE_ANNOUNCING:
             self.do_announcements()
+        elif self.state.phase == State.PHASE_PREPARING:
+            self.do_preparation()
+        else:
+            assert False, "Not expecting this game phase."
