@@ -137,7 +137,6 @@ class ProxyBot(Bot):
         if self.spy:
             s = "; SPIES " + self.bakeTeam(spies)
 
-        print('waiting', self.channel)
         w = self._join.wait() # timeout=self.Timeout
         assert w is not None, "Problem with bot %r joining." % self
         self._join = None

@@ -178,7 +178,7 @@ class Game(object):
         self.onPlayerSelected(l, [b for b in self.bots if b in selected])
         # Copy the list to make sure no internal data is leaked to the other bots!
         selected = [Player(s.name, s.index) for s in selected]
-        self.state.team = set(selected)
+        self.state.team = selected
         self.callback('onTeamSelected', self.state.leader, self.state.team)
 
         self.state.phase = State.PHASE_VOTING
