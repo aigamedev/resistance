@@ -103,10 +103,10 @@ class GarboA(Bot):
     def voterPenalites(self,team):
             if self.game.turn>1 and max([self.suspicion[i] for i in team])>=100:
                 self.suspicion[self.game.leader] += 40
-                for p in filter(lambda i:self.last_votes[i.index-1] and not i==self.game.leader, self.game.players):
+                for p in filter(lambda i:self.last_votes[i.index] and not i==self.game.leader, self.game.players):
                     self.suspicion[p]+=20
             if len(team)==3 and max([self.suspicion[i] for i in team])>=50:
-                for i in [i for i in self.players if i not in team and self.last_votes[i.index-1]]:
+                for i in [i for i in self.players if i not in team and self.last_votes[i.index]]:
                     self.suspicion[i] += 700 
     def onGameComplete(self, win, spies):
         self.log.debug("---END %s ---" % str(self.me))
@@ -138,22 +138,22 @@ class GarboA(Bot):
                     return False
         return True  
     def onVoteComplete(self, votes):
-        our = votes[self.index-1]
+        our = votes[self.index]
         if self.game.turn>1 and self.game.tries<5:
             for i in self.game.players:
-                if not votes[i.index-1]==our:
+                if not votes[i.index]==our:
                     self.suspicion[i]+=8
             team = self.game.team
             team_filtered = filter(lambda i:self.suspicion[i]<750,team)
             if self.me not in team and len(team)==3 and len(team_filtered)<3:              
-                not_team_voted_true = [i for i in self.game.players if i not in team and votes[i.index-1]]
+                not_team_voted_true = [i for i in self.game.players if i not in team and votes[i.index]]
                 for i in not_team_voted_true:
                     self.suspicion[i]+=500
             if self.me not in team and len(team)==3:
-                for i in [i for i in self.game.players if i not in team and votes[i.index-1]]:
+                for i in [i for i in self.game.players if i not in team and votes[i.index]]:
                     self.suspicion[i]+=400
             # When there there is a spy NOT in the team, voting AGAINST the team, let's assume there are no spies on the team
-            if len(filter(lambda i:self.suspicion[i]>750 and i not in team and not votes[i.index-1],self.game.players))>0:
+            if len(filter(lambda i:self.suspicion[i]>750 and i not in team and not votes[i.index],self.game.players))>0:
                 for i in self.game.team:  
                     self.suspicion[i]-=600
             

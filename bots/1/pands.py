@@ -18,12 +18,12 @@ class PandSBot(Bot):
         self.players = players
         self.spies = spies
         self.team = None        
-        self.friends = [[Probability(0.4) for x in range(6)] for y in range(6)]        
-        self.suspects = [Probability(0.0) for x in range(6)]
-        self.supportSuspects = [Variable(0.4, 1.0) for x in range(6)]
-        self.suspeciousActions = [Variable(0,0) for x in range(6)] #player not in team, team == 3, votes
-        self.possibleGoodActions = [Variable(0,0) for x in range(6)] #player in team, votes against team
-        self.suspectsPair = [[(x,y),0] for x in range(1,6) for y in range(1,6) if x < y]
+        self.friends = [[Probability(0.4) for x in range(5)] for y in range(5)]
+        self.suspects = [Probability(0.0) for x in range(5)]
+        self.supportSuspects = [Variable(0.4, 1.0) for x in range(5)]
+        self.suspeciousActions = [Variable(0,0) for x in range(5)] #player not in team, team == 3, votes
+        self.possibleGoodActions = [Variable(0,0) for x in range(5)] #player in team, votes against team
+        self.suspectsPair = [[(x,y),0] for x in range(5) for y in range(5) if x < y]
 
     def _updateSuspectsPair(self):
 
@@ -148,7 +148,7 @@ class PandSBot(Bot):
     def onVoteComplete(self, votes):
         me = [p for p in self.game.players if p.index == self.index]
         votes = votes
-        self.votes = [0] + votes;#to work properly votes[p.index]
+        self.votes = votes;#to work properly votes[p.index]
         
         team = [p.index for p in set(self.game.team)-set(me)]
         notTeam = [p.index for p in set(self.game.players)-set(self.game.team)-set(me)];

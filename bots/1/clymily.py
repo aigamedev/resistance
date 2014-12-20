@@ -528,7 +528,7 @@ class StatBot(SubsumptionBot):
         super(StatBot, self).onVoteComplete(votes)
         li = self.game.leader.index
         for i, voted in enumerate(votes):
-            voter = i+1
+            voter = i
             self.stats.votes.append((self.lastteam, li==voter, voter, voted, self.greens, self.vround))
         self.vround += 1
             

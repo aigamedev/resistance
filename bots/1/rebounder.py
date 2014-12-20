@@ -69,7 +69,7 @@ class Rebounder(Bot):
         """ Get the list of spy indices corresponding to config[v]
             Never includes me. Not used if I am a spy.
         """
-        notme = [p for p in range(1,6) if p != self.index]
+        notme = [p for p in range(5) if p != self.index]
         if v==0:   return [notme[0], notme[1]]
         elif v==1: return [notme[0], notme[2]]
         elif v==2: return [notme[0], notme[3]]
@@ -82,7 +82,7 @@ class Rebounder(Bot):
         """ Get the list of resistance indices corresponding to config[v]. 
             Never includes me. Not used if I am a spy.
         """
-        notme = [p for p in range(1,6) if p != self.index]
+        notme = [p for p in range(5) if p != self.index]
         return [p for p in notme if p not in self.get_spies(v)]
 
     def select(self, players, count):

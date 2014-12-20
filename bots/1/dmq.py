@@ -247,8 +247,8 @@ class OneSpyLessSuspiciousSelectionBehavior(ResistanceBaseBehavior):
                     sorted_by_trust.append((key, value))
             sorted_by_trust.reverse()
 
-            index1 = spies[0].index-1
-            index2 = spies[1].index-1
+            index1 = spies[0].index
+            index2 = spies[1].index
             plays1 = 0
             plays2 = 0
             for i in range(game.turn-1):
@@ -343,7 +343,7 @@ class NotSelectedSelectionBehaviour(ResistanceBaseBehavior):
                 trust = -999999
                 for j in range(5):
                     for i in range(game.turn-1):
-                        if owner.memory.selections.value[i][j] > 0 or j==owner.index-1:
+                        if owner.memory.selections.value[i][j] > 0 or j==owner.index:
                             break
                     if i == game.turn-1  and  owner.entries[game.players[j]] > trust:
                         player = j
@@ -407,7 +407,7 @@ class MostUntrustedSelectionBehaviour(ResistanceBaseBehavior):
                 players = set([])
                 for j in range(5):
                     for i in range(game.turn-1):
-                        if owner.memory.selections.value[i][j] > 0 or j==owner.index-1:
+                        if owner.memory.selections.value[i][j] > 0 or j==owner.index:
                             break
                     if i == game.turn-1:
                         players.add(game.players[j])
@@ -552,8 +552,8 @@ class NotSelectedOnVotingBehaviour(ResistanceBaseBehavior):
             #sorted_by_trust.reverse()
             #if sorted_by_trust[0][1] <= 0.5:
             if owner.entries.entries[owner.memory.currentLeader] >= -3.5:
-                v1 = owner.memory.selections.take([0,1,2,3,4],[owner.memory.currentTeam[0].index-1])
-                v2 = owner.memory.selections.take([0,1,2,3,4],[owner.memory.currentTeam[1].index-1])
+                v1 = owner.memory.selections.take([0,1,2,3,4],[owner.memory.currentTeam[0].index])
+                v2 = owner.memory.selections.take([0,1,2,3,4],[owner.memory.currentTeam[1].index])
                 #let's try this team if it has never selected before
                 res = v1.transpose() * v2
                 return (True, res.value[0][0] == 0)
@@ -599,7 +599,7 @@ class NotSelected3OnVotingBehaviour(ResistanceBaseBehavior):
             if sorted_by_trust[0][1] <= 0.5:
                 players = set([])
                 for j in range(5):
-                    if owner.memory.selections.value[1][j] == 1 and owner.memory.selections.value[0][j] == 0  and j != owner.index-1:
+                    if owner.memory.selections.value[1][j] == 1 and owner.memory.selections.value[0][j] == 0  and j != owner.index:
                         players.add(game.players[j])
                     if (owner in owner.memory.currentTeam) and len(set(owner.memory.currentTeam).intersection(players))==1:
                     #or len(set(owner.memory.currentTeam).intersection(players))==2:
@@ -783,8 +783,8 @@ class TwoSpiesSabotagingBehavior(ResistanceBaseBehavior):
         otherSpy = list(owner.memory.spies - set([owner]))
         if len([p for p in game.team if p in owner.memory.spies]) == 2 and game.wins < Game.NUM_WINS-1:
 
-            index1 = owner.index-1
-            index2 = otherSpy[0].index-1
+            index1 = owner.index
+            index2 = otherSpy[0].index
             plays1 = 0
             plays2 = 0
             for i in range(game.turn-1):
@@ -812,7 +812,7 @@ class OnMissionCompletedResistanceFailBCBehavior(ResistanceBaseBehavior):
             for member in owner.memory.currentTeam:
                 owner.entries.addTrust(member, -5)
                 #get the selections
-                owner.memory.selections.value[game.turn - 1][member.index -1] = 1
+                owner.memory.selections.value[game.turn - 1][member.index] = 1
             for member in others:
                 owner.entries.addTrust(member, 5)
             return(True, None)
@@ -826,7 +826,7 @@ class OnMissionCompletedResistanceFailBC2Behavior(ResistanceBaseBehavior):
             for member in owner.memory.currentTeam:
                 owner.entries.addTrust(member, -5)
                 #get the selections
-                owner.memory.selections.value[game.turn - 1][member.index -1] = 1
+                owner.memory.selections.value[game.turn - 1][member.index] = 1
             owner.entries.addTrust(owner.memory.currentLeader, -0.5)
             return(True, None)
         return (False, None)
@@ -840,7 +840,7 @@ class OnMissionCompletedResistanceFailBehavior(ResistanceBaseBehavior):
             for member in owner.memory.currentTeam:
                 owner.entries.addTrust(member, -2/len(owner.memory.currentTeam) - im_in_the_team/3 )
                 #get the selections
-                owner.memory.selections.value[game.turn - 1][member.index -1] = 1
+                owner.memory.selections.value[game.turn - 1][member.index] = 1
             owner.entries.addTrust(owner.memory.currentLeader, -0.5)
 
             for i in range(len(owner.memory.votes)):
@@ -860,7 +860,7 @@ class OnMissionCompletedResistanceFail2Behavior(ResistanceBaseBehavior):
                 #penalize a little bit more
                 owner.entries.addTrust(member, -2)
                 #get the selections
-                owner.memory.selections.value[game.turn - 1][member.index -1] = 1
+                owner.memory.selections.value[game.turn - 1][member.index] = 1
             for member in others:
                 owner.entries.addTrust(member, 5)
             return(True, None)
@@ -874,7 +874,7 @@ class OnMissionCompletedResistanceBCBehavior(ResistanceBaseBehavior):
             for member in owner.memory.currentTeam:
                 owner.entries.addTrust(member, 4)
                 #get the selections
-                owner.memory.selections.value[game.turn - 1][member.index -1] = 1
+                owner.memory.selections.value[game.turn - 1][member.index] = 1
 
             if not (owner.memory.currentLeader in owner.memory.currentTeam) and owner.memory.currentLeader!= owner:
                 owner.entries.addTrust(owner.memory.currentLeader, 0.5)

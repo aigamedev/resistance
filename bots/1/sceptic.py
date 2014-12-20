@@ -40,7 +40,7 @@ class GameCombinations:
 	def _countOfSpies(self, team, row):
 		r = 0
 		for p in team:
-			if row[p.index-1] == True:
+			if row[p.index] == True:
 				r += 1
 		return r
 				
@@ -235,24 +235,24 @@ class ScepticBot(Bot):
 		
 		# suspect players who vote against team in first turn
 		if self.game.turn == 1:
-			for pi in [pi for pi in self.playerInfos if not votes[pi.player.index - 1]]:
+			for pi in [pi for pi in self.playerInfos if not votes[pi.player.index]]:
 				ratio = self._getSpyRatio(pi.player, 'spyVotesFalseFirstTurn', 'resVotesFalseFirstTurn')
 				pi.onSuspiciousAction(ratio)
 		else:
 			# reduce suspicion for player who woted against the team when I'm against the team
-			if not self.spy and not votes[self.index - 1]:
-				for pi in [pi for pi in self.playerInfos if not votes[pi.player.index - 1]]:
+			if not self.spy and not votes[self.index]:
+				for pi in [pi for pi in self.playerInfos if not votes[pi.player.index]]:
 					pi.onTrustedAction(0.8) # TODO remove this hardcoded value
 					
 			# when it's team with lenght equal to number of resistance, those who are not in it and vote for team may be spies
 			if len(self.game.team) == (self.playersCnt - self.spiesCnt):
-				for pi in [pi for pi in self.playerInfos if votes[pi.player.index - 1] and pi.player not in self.game.team]:
+				for pi in [pi for pi in self.playerInfos if votes[pi.player.index] and pi.player not in self.game.team]:
 					ratio = self._getSpyRatio(pi.player, 'spyVotesForFullTeam', 'resVotesForFullTeam')
 					pi.onSuspiciousAction(ratio)
 					
 		if self.game.tries == 5:
 			# suspect players who wote against the team in last try
-			for pi in [pi for pi in self.playerInfos if not votes[pi.player.index - 1]]:
+			for pi in [pi for pi in self.playerInfos if not votes[pi.player.index]]:
 				pi.onSuspiciousAction(1.0) # TODO maybe should not be hardcoded
 			
 		self._updatePlayersSuspicions()
@@ -303,7 +303,7 @@ class ScepticBot(Bot):
 			
 			# don't trust to players who woted for spies. Except first turn
 			if self.game.turn != 1:
-				for pi in [ pi for pi in self.playerInfos if self.lastVotes[pi.player.index-1]]:
+				for pi in [ pi for pi in self.playerInfos if self.lastVotes[pi.player.index]]:
 					pi.onSuspiciousAction(self._getSpyRatio(pi.player, 'spyVotesForSpy', 'resVotesForSpy'))
 							
 			
@@ -321,23 +321,23 @@ class ScepticBot(Bot):
 			if turn == 1:
 				for p in team:
 					if p in spies:
-						self.playerStats[p.name].spyVotesFalseFirstTurn.add(0 if votes[p.index-1] else 1)
+						self.playerStats[p.name].spyVotesFalseFirstTurn.add(0 if votes[p.index] else 1)
 					else:
-						self.playerStats[p.name].resVotesFalseFirstTurn.add(0 if votes[p.index-1] else 1)
+						self.playerStats[p.name].resVotesFalseFirstTurn.add(0 if votes[p.index] else 1)
 			else:
 				if set(team).intersection(spies):
 					for p in self.game.players:
 						if p in spies:
-							self.playerStats[p.name].spyVotesForSpy.add(1 if votes[p.index-1] else 0)
+							self.playerStats[p.name].spyVotesForSpy.add(1 if votes[p.index] else 0)
 						else:
-							self.playerStats[p.name].resVotesForSpy.add(1 if votes[p.index-1] else 0)
+							self.playerStats[p.name].resVotesForSpy.add(1 if votes[p.index] else 0)
 							
 				if len(team) == (self.playersCnt - self.spiesCnt):
 					for p in [p for p in self.game.players if p not in team]:
 						if p in spies:
-							self.playerStats[p.name].spyVotesForFullTeam.add(1 if votes[p.index-1] else 0)
+							self.playerStats[p.name].spyVotesForFullTeam.add(1 if votes[p.index] else 0)
 						else:
-							self.playerStats[p.name].resVotesForFullTeam.add(1 if votes[p.index-1] else 0)
+							self.playerStats[p.name].resVotesForFullTeam.add(1 if votes[p.index] else 0)
 	
 		for leader, team in self.selections:
 			isSpyInTeam = len([p for p in team if p in spies and p != leader]) > 0
@@ -348,7 +348,7 @@ class ScepticBot(Bot):
 	def _updatePlayersSuspicions(self):
 		spyRatios = self.gameCombinations.getProbabilities()	
 		for p in self.playerInfos:
-			spyRatio = spyRatios[p.player.index-1]
+			spyRatio = spyRatios[p.player.index]
 			if spyRatio > 0.99:
 				self._processSpySelections(p)
 			p.updateSuspicion(spyRatio)
