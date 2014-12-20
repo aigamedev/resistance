@@ -15,10 +15,21 @@ class FakeGame(BaseGame):
         self.spies = set()
 
         self.replay = replay
+        self.calls = {}
 
     def step(self, count=1):
         for _ in range(count):
             super(FakeGame, self).step()
+
+    def __getattribute__(self, name):
+        """Intercept all observer notifications for functions named on*() and
+        store the arguments."""
+        if name.startswith('on'):
+            def onCallback(*args):
+                self.calls[name] = args
+                return BaseGame.__getattribute__(self, name)(*args)
+            return onCallback
+        return BaseGame.__getattribute__(self, name)
 
     def get_selection(self, count):
         phase, data = self.replay.pop(0)
@@ -47,11 +58,13 @@ class TestGamePreparation(unittest.TestCase):
         self.game = FakeGame()
 
     def test_BeforePreparation(self):
-        self.assertEquals(self.game.state.phase, State.PHASE_PREPARING)
+        self.assertEquals(self.game.state.phase, State.PHASE_PREPARING)        
+        self.assertNotIn('onGameRevealed', self.game.calls)
 
-    def test_AfterPreparation(self):
+    def test_AfterPreparation(self):        
         self.game.step()
         self.assertEquals(self.game.state.phase, State.PHASE_SELECTION)
+        self.assertIn('onGameRevealed', self.game.calls)
 
 
 class TestGameSelection(unittest.TestCase):
@@ -62,6 +75,7 @@ class TestGameSelection(unittest.TestCase):
 
     def test_BeforeSelection(self):
         self.assertEquals(self.game.state.phase, State.PHASE_SELECTION)
+        self.assertNotIn('onTeamSelected', self.game.calls)
 
     def test_AfterSelection(self):
         self.game.replay = [
@@ -69,6 +83,7 @@ class TestGameSelection(unittest.TestCase):
         ]
         self.game.step()
         self.assertEquals(self.game.state.phase, State.PHASE_VOTING)
+        self.assertIn('onTeamSelected', self.game.calls)
 
 
 class TestGameVoting(unittest.TestCase):
@@ -82,6 +97,7 @@ class TestGameVoting(unittest.TestCase):
 
     def test_BeforeVoting(self):
         self.assertEquals(self.game.state.phase, State.PHASE_VOTING)
+        self.assertNotIn('onVoteComplete', self.game.calls)
 
     def test_AfterMajoritySupportThenProceed(self):
         # When a majority votes the mission up, the game goes to mission phase.
@@ -90,6 +106,8 @@ class TestGameVoting(unittest.TestCase):
         self.assertEquals(self.game.state.phase, State.PHASE_MISSION)
         self.assertEquals(self.game.state.turn, 1)
         self.assertEquals(self.game.state.tries, 1)
+        self.assertIn('onVoteComplete', self.game.calls)
+        self.assertNotIn('onMissionFailed', self.game.calls)
 
     def test_AfterMajorityAgainstThenRetry(self):
         # When a majority votes the mission down, the game proceeds to next try.
@@ -98,6 +116,8 @@ class TestGameVoting(unittest.TestCase):
         self.assertEquals(self.game.state.phase, State.PHASE_ANNOUNCING)
         self.assertEquals(self.game.state.turn, 1)
         self.assertEquals(self.game.state.tries, 2)
+        self.assertIn('onVoteComplete', self.game.calls)
+        self.assertIn('onMissionFailed', self.game.calls)
 
 
 class TestGameMission(unittest.TestCase):
@@ -112,18 +132,21 @@ class TestGameMission(unittest.TestCase):
 
     def test_BeforeMission(self):
         self.assertEquals(self.game.state.phase, State.PHASE_MISSION)
+        self.assertNotIn('onMissionComplete', self.game.calls)
 
     def test_AfterMissionFails(self):
         self.game.replay.append(('sabotages', 1))
         self.game.step()
         self.assertEquals(self.game.state.phase, State.PHASE_ANNOUNCING)
         self.assertEquals(self.game.state.losses, 1)
+        self.assertIn('onMissionComplete', self.game.calls)
 
     def test_AfterMissionSucceeds(self):
         self.game.replay.append(('sabotages', 0))
         self.game.step()
         self.assertEquals(self.game.state.phase, State.PHASE_ANNOUNCING)
         self.assertEquals(self.game.state.wins, 1)
+        self.assertIn('onMissionComplete', self.game.calls)
 
 
 class TestAnnouncements(unittest.TestCase):
@@ -140,10 +163,14 @@ class TestAnnouncements(unittest.TestCase):
     def test_BeforeAnnouncement(self):
         self.assertEquals(self.game.state.phase, State.PHASE_ANNOUNCING)
         self.assertEquals(self.game.state.leader, self.game.state.players[0])
+        self.assertNotIn('onAnnouncement', self.game.calls)
 
     def test_AfterAnnouncement(self):
-        self.game.replay.append(('announcements', {}))
+        p = self.game.state.players
+        self.game.replay.append(('announcements', [(p[0], {p[1]: 1.0})]))
         self.game.step()
+        self.assertIn('onAnnouncement', self.game.calls)
+
         self.assertEquals(self.game.state.phase, State.PHASE_SELECTION)
         self.assertEquals(self.game.state.leader, self.game.state.players[1])
 

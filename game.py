@@ -67,6 +67,7 @@ class BaseGame(object):
     NUM_WINS = 3
     NUM_LOSSES = 3
 
+
     def onGameRevealed(self, players, spies):
         pass
 
