@@ -6,3 +6,6 @@ Python framework for THE RESISTANCE board & card game, along with various AI bot
 |Build Status|
 
 ----
+
+.. |Build Status| image:: https://travis-ci.org/aigamedev/resistance.png?branch=master
+   :target: https://travis-ci.org/aigamedev/resistance

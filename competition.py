@@ -167,10 +167,10 @@ class CompetitionRunner(object):
                 self.statistics[p] += s
 
             if not self.quiet:
-                if (i+1) % 100 == 0:  output('(%02i%%)\n' % (100*(i+1)/self.rounds))
-                elif (i+1) % 25 == 0: output('O')
-                elif (i+1) %  5 == 0: output('o')
-                else:                 output('.')
+                if (i+1) % 500 == 0:  output('(%02i%%)\n' % (100*(i+1)/self.rounds))
+                elif (i+1) % 125 == 0: output('O')
+                elif (i+1) %  25 == 0: output('o')
+                elif (i+1) %  5 == 0: output('.')
 
     def echo(self, *args):
         print(' '.join([str(a) for a in args]))
