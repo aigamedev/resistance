@@ -6,7 +6,7 @@ from player import Player
 class State(object):
     """Simple game state data-structure that's passed to bots to help reduce
     the amount of book-keeping required.  Your bots can access this via the
-    self.game member variable.
+    `self.game` member variable.
 
     This data-structure is available in all the bot API functions, and gets
     updated automatically (in between API calls) once new information is
@@ -58,7 +58,7 @@ class State(object):
         return output + ">"
 
 
-class Game(object):
+class BaseGame(object):
     """Implementation of the core gameplay of THE RESISTANCE.  This class
     currently only supports games of 5 players."""
 
@@ -74,12 +74,6 @@ class Game(object):
         pass
 
     def onTeamSelected(self, leader, team):
-        pass
-
-    def onPlayerSelected(self, player, team):
-        pass
-
-    def onPlayerVoted(self, player, vote, leader, team):
         pass
 
     def onVoteComplete(self, votes):
@@ -98,15 +92,8 @@ class Game(object):
         pass
 
 
-    def __init__(self, bots, roles, state=None):
+    def __init__(self, state=None):
         self.state = state or State()
-
-        # Create Bot instances based on the constructor passed in.
-        self.bots = [p(self.state, i, r) for p, r, i in zip(bots, roles, range(1, len(bots)+1))]
-        
-        # Maintain a copy of players that includes minimal data, for passing to other bots.
-        self.state.players = [Player(p.name, p.index) for p in self.bots]
-        self.state.leader = self.next_leader()
 
         # Configuration for the game itself.
         self.participants = [2, 3, 2, 3, 3]
@@ -145,13 +132,14 @@ class Game(object):
         return self.state.losses >= self.NUM_LOSSES
 
     def callback(self, name, *args):
-        for p in self.bots:
-            getattr(p, name)(*args)
         getattr(self, name)(*args)
 
     def next_leader(self):
-        li = (self.state.leader.index % len(self.state.players)) if self.state.leader else 0
+        li = ((self.state.leader.index+1) % len(self.state.players)) if self.state.leader else 0
         return self.state.players[li]
+
+    def get_selection(self, count):
+        raise NotImplementedError
 
     def do_selection(self):
         """Phase 1) Pick the leader and ask for a selection of players on the team.
@@ -160,96 +148,64 @@ class Game(object):
         self.state.votes = None
         self.state.sabotages = None
 
-        l = self.bots[self.state.leader.index-1]
         self.callback('onMissionAttempt', self.state.turn, self.state.tries, self.state.leader)
-
         count = self.participants[self.state.turn-1]
-        selected = l.select(self.state.players, count)
+        selected = self.get_selection(count)
 
-        # Check the data returned by the bots is in the expected format!
-        assert type(selected) in [list, set, tuple], "Expecting a list|set|tuple as a return value of select(), not %s." % type(selected)
-        assert len(set(selected)) == len(selected), "There were duplicate players returned in the list by %s.select()." % (l.name)
-        assert len(selected) == count, "The list returned by %s.select() is of the wrong size!  Expecting %i was %i." % (l.name, count, len(selected))
-        for s in selected:
-            assert isinstance(s, Player), "Please return Player objects in the list from %s.select()." % (l.name)
-            assert s in self.state.players, "The specified Player does not exist in this game: %r." % (s)
-
-        # Make an internal callback, e.g. to track statistics about selection.
-        self.onPlayerSelected(l, [b for b in self.bots if b in selected])
         # Copy the list to make sure no internal data is leaked to the other bots!
-        selected = [Player(s.name, s.index) for s in selected]
-        self.state.team = selected
+        self.state.team = [Player(s.name, s.index) for s in selected]
         self.callback('onTeamSelected', self.state.leader, self.state.team)
 
         self.state.phase = State.PHASE_VOTING
 
+    def get_votes(self):
+        raise NotImplementedError
+
     def do_voting(self):
         """Phase 2) Notify other bots of the selection and ask for a vote."""
 
-        votes = []
-        for p in self.bots:
-            v = p.vote(set(self.state.team))
-            assert type(v) is bool, "Please return a boolean from %s.vote() instead of %s." % (p.name, type(v))
-            self.onPlayerVoted(p, v, self.state.leader, [b for b in self.bots if b in self.state.team])
-            votes.append(v)
+        votes = self.get_votes()
         
         self.state.votes = votes[:]
         self.callback('onVoteComplete', votes[:])
-
-        self.state.phase = State.PHASE_MISSION
-
-    def do_mission(self):
-        """Phase 3) Run the mission and ask the bots if they want to help with
-        the mission or sabotage!"""
 
         score = sum([int(v) for v in self.state.votes])
 
         # Continue if there was a clear majority...
         if score > 2:
-            sabotaged = 0
-            for s in self.state.team:
-                p = self.bots[s.index-1]
-                result = False
-                if p.spy:
-                    result = p.sabotage()
-                    assert type(result) is bool, "Please return a boolean from %s.sabotage(), not %s." % (p.name, type(result))
-                sabotaged += int(result)
-
-            if sabotaged == 0:
-                self.state.wins += 1
-            else:
-                self.state.losses += 1
-                
-            self.state.sabotages = sabotaged
-
-            # Pass back the results of the mission to the bots.
-            # Process the team first to make sure any timing of the result
-            # is the same for all player roles, specifically over IRC.
-            for s in self.state.team:
-                p = self.bots[s.index-1]
-                p.onMissionComplete(sabotaged)
-            # Now, with delays taken into account, all other results can be
-            # passed back safely without divulging Spy/Resistance identities.
-            for p in [b for b in self.bots if b not in self.state.team]:
-                p.onMissionComplete(sabotaged)
-            self.onMissionComplete(sabotaged)
-
-            self.state.turn += 1
-            self.state.tries = 1
+            self.state.phase = State.PHASE_MISSION
         else:
             self.callback('onMissionFailed', self.state.leader, self.state.team)
-            
             self.state.tries += 1
+            self.state.phase = State.PHASE_ANNOUNCING
+
+    def get_sabotages(self):
+        raise NotImplementedError
+
+    def do_mission(self):
+        """Phase 3) Run the mission and ask the bots if they want to help with
+        the mission or sabotage!"""
+
+        sabotaged = self.get_sabotages()
+        if sabotaged == 0:
+            self.state.wins += 1
+        else:
+            self.state.losses += 1
+        self.state.sabotages = sabotaged
+
+        self.onMissionComplete(sabotaged)
 
         self.state.phase = State.PHASE_ANNOUNCING
+        self.state.turn += 1
+        self.state.tries = 1
+
+    def get_announcements(self):
+        raise NotImplementedError
 
     def do_announcements(self):
         """Phase 4) Allow bots to publicly announce what they want about the game.
         """
-        for p in self.bots:
-            ann = p.announce()
-            if not ann: continue
-
+        for source, ann in self.get_announcements():
             copy = {}
             assert type(ann) is dict, "Please return a dictionary from %s.announce(), not %s." % (p.name, type(ann))
             for k, v in ann.items():
@@ -257,21 +213,13 @@ class Game(object):
                 assert isinstance(v, float), "Please use floats as dictionary values in %s.announce()." % (p.name)
                 copy[Player(k.name, k.index)] = v
 
-            source = Player(p.name, p.index)
-            for other in [o for o in self.bots if o != p]:
-                other.onAnnouncement(source, copy)
             self.onAnnouncement(source, copy)
 
         self.state.leader = self.next_leader()
         self.state.phase = State.PHASE_SELECTION
 
     def do_preparation(self):
-        # Tell the bots who the spies are if they are allowed to know.
-        spies = set([Player(p.name, p.index) for p in self.bots if p.spy])
-        for p in self.bots:
-            p.onGameRevealed(self.state.players, spies if p.spy else set())
-        self.onGameRevealed(self.state.players, spies)
-
+        self.onGameRevealed(self.state.players, self.spies)        
         self.state.phase = State.PHASE_SELECTION
 
     def step(self):
@@ -290,3 +238,89 @@ class Game(object):
             self.do_preparation()
         else:
             assert False, "Not expecting this game phase."
+
+
+class Game(BaseGame):
+
+    def __init__(self, bots, roles, state=None):
+        super(Game, self).__init__(state=state)
+
+        # Create Bot instances based on the constructor passed in.
+        self.bots = [p(self.state, i, r) for p, r, i in zip(bots, roles, range(0, len(bots)))]
+        self.spies = set([Player(p.name, p.index) for p in self.bots if p.spy])
+        
+        # Maintain a copy of players that includes minimal data, for passing to other bots.
+        self.state.players = [Player(p.name, p.index) for p in self.bots]
+        self.state.leader = self.next_leader()
+
+    def onPlayerSelected(self, player, team):
+        pass
+
+    def onPlayerVoted(self, player, vote, leader, team):
+        pass
+
+    def callback(self, name, *args):
+        for p in self.bots:
+            getattr(p, name)(*args)
+        getattr(self, name)(*args)
+
+    def onGameRevealed(self, players, spies):
+        # Tell the bots who the spies are if they are allowed to know.        
+        for p in self.bots:
+            p.onGameRevealed(self.state.players, spies if p.spy else set())
+
+    def get_selection(self, count):
+        leader = self.bots[self.state.leader.index]
+        selected = leader.select(self.state.players, count)
+
+        # Check the data returned by the bots is in the expected format!
+        assert type(selected) in [list, set, tuple], "Expecting a list|set|tuple as a return value of select(), not %s." % type(selected)
+        assert len(set(selected)) == len(selected), "There were duplicate players returned in the list by %s.select()." % (leader.name)
+        assert len(selected) == count, "The list returned by %s.select() is of the wrong size!  Expecting %i was %i." % (leader.name, count, len(selected))
+        for s in selected:
+            assert isinstance(s, Player), "Please return Player objects in the list from %s.select()." % (leader.name)
+            assert s in self.state.players, "The specified Player does not exist in this game: %r." % (s)
+
+        # Make an internal callback, e.g. to track statistics about selection.
+        self.onPlayerSelected(leader, [b for b in self.bots if b in selected])
+        return selected
+
+    def get_votes(self):
+        votes = []
+        for p in self.bots:
+            v = p.vote(self.state.team)
+            assert type(v) is bool, "Please return a boolean from %s.vote() instead of %s." % (p.name, type(v))
+            self.onPlayerVoted(p, v, self.state.leader, [b for b in self.bots if b in self.state.team])
+            votes.append(v)
+        return votes
+
+    def onMissionComplete(self, sabotaged):
+        # Pass back the results of the mission to the bots.
+        # Process the team first to make sure any timing of the result
+        # is the same for all player roles, specifically over IRC.
+        for s in self.state.team:
+            p = self.bots[s.index]
+            p.onMissionComplete(sabotaged)
+
+        # Now, with delays taken into account, all other results can be
+        # passed back safely without divulging Spy/Resistance identities.
+        for p in [b for b in self.bots if b not in self.state.team]:
+            p.onMissionComplete(sabotaged)
+        
+    def get_sabotages(self):
+        sabotaged = 0
+        for s in self.state.team:
+            p = self.bots[s.index]
+            result = False
+            if p.spy:
+                result = p.sabotage()
+                assert type(result) is bool, "Please return a boolean from %s.sabotage(), not %s." % (p.name, type(result))
+            sabotaged += int(result)
+        return sabotaged
+
+    def onAnnouncement(self, player, announcement):
+        for other in [o for o in self.bots if o != player]:
+            other.onAnnouncement(player, announcement)
+
+    def get_announcements(self):
+        return [(p, ann) for p, ann in [(Player(p.name, p.index), p.announce()) for p in self.bots] if ann]
