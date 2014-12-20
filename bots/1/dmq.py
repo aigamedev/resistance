@@ -54,7 +54,7 @@ class Bot5Players(Bot):
         @param leader   The leader in charge for this mission.
         @param team     The team that was selected by the current leader.
         """
-        self.memory.currentTeam = team
+        self.memory.currentTeam = list(team)
         self.memory.currentLeader = leader
         self.behavior.process(self.game, self, GamePhase.onTeamSelected)
 
@@ -63,7 +63,7 @@ class Bot5Players(Bot):
         @param team      List of players with index and name.
         @return bool     Answer Yes/No.
         """
-        self.memory.currentTeam = team
+        self.memory.currentTeam = list(team)
         return self.behavior.process(self.game, self, GamePhase.vote)
 
     def onVoteComplete(self, votes):
@@ -455,7 +455,7 @@ class VotingBCResistanceMemberBehaviour(ResistanceBaseBehavior):
         # Base case, accept the mission anyway
         # a spy should be easily spotted if  it rejects the team
         # We are supposing resistance players have somekind of rationality
-        if game.tries == Game.NUM_TURNS:
+        if game.tries == Game.MAX_TURNS:
             return (True, True)
         else:
             return (False, None)
@@ -711,7 +711,7 @@ class ResistanceMemberOnVotingBaseCase(ResistanceBaseBehavior):
     """
     def process(self, game, owner, phase):
         # base case: see if any bot has rejected the team, they must be spies
-        if game.tries == Game.NUM_TURNS and game.losses < Game.NUM_LOSSES:
+        if game.tries == Game.MAX_TURNS and game.losses < Game.NUM_LOSSES:
             for i in range(len(owner.memory.votes)):
                 if not owner.memory.votes[i]:
                      owner.entries.addTrust(game.players[i], -1)

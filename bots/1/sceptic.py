@@ -222,7 +222,7 @@ class ScepticBot(Bot):
 
 	def onVoteComplete(self, votes):
 		
-		self.votes.append((self.game.turn, self.game.team.copy(), votes))
+		self.votes.append((self.game.turn, self.game.team[:], votes))
 		self.lastVotes = votes
 		
 		# when all players are against the team, there is probably no spy in it
@@ -278,7 +278,7 @@ class ScepticBot(Bot):
 		
 	def onMissionComplete(self, sabotaged):
 		
-		self.missions.append((self.game.team.copy(), sabotaged))
+		self.missions.append((self.game.team[:], sabotaged))
 		
 		# trust players who didn't sabotage mission
 		if sabotaged == 0:

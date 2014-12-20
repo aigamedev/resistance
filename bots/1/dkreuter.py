@@ -130,8 +130,8 @@ class SuspectTracker:
         self.spies = spies or set()
 
     def asdf(self, team, sabotaged, simulate=False):
-        suspects = team - self.spies - {self._}
-        spies = team & self.spies
+        suspects = set(team) - self.spies - {self._}
+        spies = set(team) & self.spies
         if sabotaged < len(suspects) + len(spies):
             suspects = tuple()
         if not simulate:
@@ -165,7 +165,7 @@ class Prediction:
         game.team = team
         l = probsum2(
             (self.spy and self.spy_vte or self.rst_vte)(
-                game, self.cos&team
+                game, self.cos & set(team)
             )
         )
         return l[1]*0.5+l[2]
@@ -241,7 +241,7 @@ class Prediction:
             (g.rst_vte_mem, self._ in game.team),
             (g.rst_vte_ldr, self._ == game.leader),
             (g.rst_vte_sze, len(game.team)),
-            (g.rst_vte_obv, bool(game.team & self.tracker.spies))
+            (g.rst_vte_obv, bool(set(game.team) & self.tracker.spies))
         )
 
     def upload(self, gamelog, spies):
