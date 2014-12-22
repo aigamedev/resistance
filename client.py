@@ -271,20 +271,11 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--name', type=str, required=False, default='aigamedev',
-                help = "Name of the IRC client that connects to the server.")
-    args = parser.parse_known_args()
+    parser.add_argument('--server', type=str, required=False, default='localhost',
+                help="Name of the IRC server to connect the specified bots to.")
+    args, remaining = parser.parse_known_args()
 
-    
-    if len(sys.argv) == 1:
-        print('USAGE: client.py file.BotName [...]')
-        sys.exit(-1)
-
-    server = 'localhost'
-    if 'irc.' in sys.argv[1]:
-        server = sys.argv.pop(1)
-
-    for cls in getCompetitors(sys.argv[1:]):
-        reactor.connectTCP(server, 6667, ResistanceFactory(cls))
+    for cls in getCompetitors(remaining):
+        reactor.connectTCP(args.server, 6667, ResistanceFactory(cls))
 
     reactor.run()

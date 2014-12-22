@@ -45,28 +45,34 @@ class OnlineRound(CompetitionRound):
 
     def onGameRevealed(self, players, spies):
         self.send(str(players))
+        super(OnlineRound, self).onGameRevealed(players, spies)
 
     def onMissionAttempt(self, mission, tries, leader):
         self.send("MISSION %i, TRY %i. LEADER %s!" % (mission, tries, leader))
+        super(OnlineRound, self).onMissionAttempt(mission, tries, leader)
 
     def onTeamSelected(self, leader, team):
         self.send("SELECTION %s." % (team))
+        super(OnlineRound, self).onTeamSelected(leader, team)
 
     def onVoteComplete(self, votes):
         self.send("VOTED %s." % (', '.join([showYesOrNo(v) for v in votes])))
+        super(OnlineRound, self).onVoteComplete(votes)
 
     def onMissionComplete(self, sabotaged):
         self.send("SABOTAGED %i." % (sabotaged))
+        super(OnlineRound, self).onMissionComplete(sabotaged)
 
     def onAnnouncement(self, source, announcement):
         self.send("ANNOUNCEMENT from %s: %r" % (source, announcement))
+        super(OnlineRound, self).onAnnouncement(source, announcement)
 
     def onGameComplete(self, win, spies):
         if win:
             self.send("RESISTANCE WIN.")
         else:
             self.send("SPIES WIN...")
-
+        super(OnlineRound, self).onGameComplete(win, spies)
 
 
 class ProxyBot(Bot):
