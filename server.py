@@ -494,7 +494,7 @@ class ResistanceCompetitionHandler(CompetitionRunner):
                 return
 
             # Connecting bots always self-identify as bot for future reference.
-            if msg.params[1] == 'BOT':
+            if len(msg.params) > 1 and msg.params[1] == 'BOT':
                 self.identities.append(msg.prefix.split('!')[0])
 
             for g in self.games:    

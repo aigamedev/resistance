@@ -82,27 +82,27 @@ class InvalidatorAdviser(object):
         if self.bot.spy:
             spies = [s for s in team if s in self.bot.spies]
             if len(spies) > 0 and (self.game.losses == 2 or self.game.wins == 2):
-                self.bot.log.info("Taking a risk since the game could finish.")
+                self.bot.log.debug("Taking a risk since the game could finish.")
                 return True
             
             if self.game.tries == 5:
-                self.bot.log.info("Voting up the last mission because Resistance would.")
+                self.bot.log.debug("Voting up the last mission because Resistance would.")
                 return True
 
             if len(team) == 3:
-                self.bot.log.info("Voting strongly about this team because it's size 3!")
+                self.bot.log.debug("Voting strongly about this team because it's size 3!")
                 return self.bot in team
 
         else: # not self.bot.spy
 
             # Always approve our own missions.
             if self.game.leader == self.bot:
-                self.bot.log.info("Approving my own mission selection.")
+                self.bot.log.debug("Approving my own mission selection.")
                 return True
 
             # As resistance, always pass the fifth try.
             if self.game.tries == 5:
-                self.bot.log.info("Voting up the last mission to avoid failure.")
+                self.bot.log.debug("Voting up the last mission to avoid failure.")
                 return True
         
         return None
@@ -128,15 +128,15 @@ class Invalidator(Bot):
 
     def select(self, players, count):
         likely = self.likeliest(self.invalidations.keys())
-        self.log.info("Selecting randomly from these Resistance teams:")
+        self.log.debug("Selecting randomly from these Resistance teams:")
         for c in likely:
-            self.log.info("  %s = %0.2f (%i)" % (self.getResistance(c), self.invalidations[c], len(self.factors[c])))
+            self.log.debug("  %s = %0.2f (%i)" % (self.getResistance(c), self.invalidations[c], len(self.factors[c])))
         config = random.choice(likely)
 
         if self.factors[config]:
-            self.log.info("Chosen configuration had these factors:")
+            self.log.debug("Chosen configuration had these factors:")
             for s, f in self.factors[config]:
-                self.log.info("%0.2f - %s" % (s, f))
+                self.log.debug("%0.2f - %s" % (s, f))
         return [self] + random.sample(self.getResistance(config), count-1)
 
     def onTeamSelected(self, leader, team):
@@ -158,22 +158,22 @@ class Invalidator(Bot):
                 scores.append(self.invalidations[config])
                 matches.append(config)
         if not scores:
-            self.log.info("No configuration matches this selection!")
+            self.log.debug("No configuration matches this selection!")
             return False
 
         # Establish whether this meets the criteria for selection...
         score = min(scores)
         threshold = min(self.invalidations.values())
         if score <= threshold:
-            self.log.info("This selection scores %s under threshold %f." % (scores, threshold))
+            self.log.debug("This selection scores %s under threshold %f." % (scores, threshold))
             return True
         else:
-            self.log.info("This selection scores %s above threshold %0.2f." % (scores, threshold))
+            self.log.debug("This selection scores %s above threshold %0.2f." % (scores, threshold))
             for config in matches:
-                self.log.info("Possible configuration for %s:" % (str(self.getResistance(config))))
+                self.log.debug("Possible configuration for %s:" % (str(self.getResistance(config))))
                 for s, f in self.factors[config]:
-                    self.log.info("  %0.2f - %s" % (s, f))
-            self.log.info("Options for Resistance were:\n%s" % ("\n".join(["  %s = %0.2f (%i)" % (str(self.getResistance(c)), t, len(self.factors[c])) for c, t in self.invalidations.items() if t == threshold])))
+                    self.log.debug("  %0.2f - %s" % (s, f))
+            self.log.debug("Options for Resistance were:\n%s" % ("\n".join(["  %s = %0.2f (%i)" % (str(self.getResistance(c)), t, len(self.factors[c])) for c, t in self.invalidations.items() if t == threshold])))
             return False
 
     def onVoteComplete(self, votes):
@@ -195,17 +195,17 @@ class Invalidator(Bot):
             self.factors[config].extend(factors)
 
     def sabotage(self):
+        self.log.info("It looks like you're trying to frame me...")
         # If there's a chance of losing or winning, don't slow-play!
         if self.game.wins == 2 or self.game.losses == 2:
-            self.log.info("There's a chance of winning or losing.")
+            self.log.debug("There's a chance of winning or losing.")
             return True
         if len(self.game.team) == 2 and self.game.turn == 1:
-            self.log.info("Missions of size two are too risky...")
+            self.log.debug("Missions of size two are too risky...")
             return False
         spies = [s for s in self.game.team if s in self.spies]
         if len(spies) > 1:
-            self.log.info("Too many spies, can't coordinate!")
+            self.log.debug("Too many spies, can't coordinate!")
             return False
-        self.log.info("All other checks failed, why not since I'm a spy?")
+        self.log.debug("All other checks failed, why not since I'm a spy?")
         return True
-

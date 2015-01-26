@@ -23,9 +23,11 @@ class ResistanceLogger(logging.Handler):
 
         try:
             msg = self.format(record)
+            ch = self.channel if record.levelno < logging.INFO else self.game
+            prefix = "COMMENT " if record.levelno < logging.INFO else "[%i] " % (self.bot.index)
             length = 300 # Maximum line for an IRC message is 510, so split string.
             for line in [msg[i:i+length] for i in range(0, len(msg), length)]:
-                self.protocol.msg(self.channel, 'COMMENT %s' % (line))
+                self.protocol.msg(ch, '%s%s' % (prefix, line))
         except (KeyboardInterrupt, SystemExit):
             raise
         except:
@@ -52,6 +54,9 @@ class ResistanceClient(object):
     def process_JOIN(self, msg):
         channel = msg.rstrip('.').split(' ')[1]
         self.protocol.join(channel)
+
+        game = '-'.join(channel.split('-')[:2])
+        self.protocol.join(game)
 
     def process_REVEAL(self, reveal, role, players, spies=None):
         # ROLE Resistance.
@@ -194,10 +199,14 @@ class ResistanceClient(object):
         self.channel = channel
         if self.logger is not None:
             self.logger.channel = channel
+            self.logger.game = '-'.join(channel.split('-')[:2])
+            self.logger.bot = self.getBot()
 
         process(*args)
 
         if self.logger is not None:
+            self.logger.bot = None
+            self.logger.game = None
             self.logger.channel = None
         self.channel = None
         self.sender = None
@@ -228,8 +237,9 @@ class ResistanceProtocol(irc.IRCClient):
         pass
 
     def privmsg(self, user, channel, msg):
-        u = user.split('!')[0]
-        self.client.message(u, channel, msg)
+        if 'player' in channel:
+            u = user.split('!')[0]
+            self.client.message(u, channel, msg)
 
     def userLeft(self, user, channel):
         self.client.disconnect(user, channel)
@@ -245,6 +255,8 @@ class ResistanceProtocol(irc.IRCClient):
         channel = args[1]
         if '#game-' in channel:
             self.join(channel)
+            game = '-'.join(channel.split('-')[:2])
+            self.join(game)
 
 
 class ResistanceFactory(protocol.ClientFactory):
