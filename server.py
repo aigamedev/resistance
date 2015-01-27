@@ -56,7 +56,11 @@ class OnlineRound(CompetitionRound):
         super(OnlineRound, self).onTeamSelected(leader, team)
 
     def onVoteComplete(self, votes):
-        self.send("VOTED %s." % (', '.join([showYesOrNo(v) for v in votes])))
+        total = sum([int(v)*2-1 for v in votes])
+        results = ["\t%r: %s" % (p, showYesOrNo(v)) for p, v in zip(self.state.players, votes)]
+        self.send("VOTED %+i." % total)
+        for line in results:
+            self.send(line)
         super(OnlineRound, self).onVoteComplete(votes)
 
     def onMissionComplete(self, sabotaged):
@@ -241,7 +245,12 @@ class ProxyBot(Bot):
         self.send("SABOTAGES %i." % (sabotaged))
         self.expecting = None
 
-    def announce(self):
+        self.do_announce()
+
+    def onMissionFailed(self, leader, team):
+        self.do_announce()
+
+    def do_announce(self):
         self._announce = AsyncResult()
         self.expecting = self.process_ANNOUNCED
 
@@ -249,7 +258,14 @@ class ProxyBot(Bot):
         if not self.bot:
             self.send('/me '  + self.expecting.__doc__)
 
-        ann = self._announce.get(timeout=self.TIMEOUT)
+    def announce(self):        
+        timeout = self.TIMEOUT if self.bot else 10.0
+        try:
+            ann = self._announce.get(timeout=timeout)
+        except Timeout as t:
+            if self.bot:
+                raise t
+            ann = {}
         self._announce = None
         return ann
 
@@ -464,6 +480,9 @@ class ResistanceCompetitionHandler(CompetitionRunner):
                             if b._join:
                                 b._join.set()
                             return
+                        if channel in b.channel:
+                            # Bot joined shared game channel, used for global chat.
+                            return
                 print("Not waiting for a player to join this channel.", file=sys.stderr)
             else:
                 self.competitors.append(user)
@@ -489,7 +508,7 @@ class ResistanceCompetitionHandler(CompetitionRunner):
             # Any human may ask this server to run games with available players.
             channel = msg.params[0].lstrip(':')
             if channel == '#resistance':
-                if msg.params[1] == 'PLAY':
+                if msg.params[1].lower() == 'play':
                     self.run(' '.join(msg.params[2:]))
                 return
 

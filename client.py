@@ -12,19 +12,19 @@ class ResistanceLogger(logging.Handler):
     def __init__(self, protocol):
         logging.Handler.__init__(self)
         self.protocol = protocol
-        self.channel = None
+        self.client = None
 
     def flush(self):
         pass
 
     def emit(self, record):
-        if self.channel is None:
+        if self.client.channel is None:
             return
 
         try:
             msg = self.format(record)
-            ch = self.channel if record.levelno < logging.INFO else self.game
-            prefix = "COMMENT " if record.levelno < logging.INFO else "[%i] " % (self.bot.index)
+            ch = self.client.channel if record.levelno < logging.INFO else self.client.game
+            prefix = "COMMENT " if record.levelno < logging.INFO else "[%i] " % (self.client.bot.index)
             length = 300 # Maximum line for an IRC message is 510, so split string.
             for line in [msg[i:i+length] for i in range(0, len(msg), length)]:
                 self.protocol.msg(ch, '%s%s' % (prefix, line))
@@ -42,11 +42,12 @@ class ResistanceClient(object):
         self.bots = {}
 
         self.channel = None
+        self.game = None
         self.logger = None
         self.sender = None
 
     def getBot(self):
-        return self.bots[self.channel]
+        return self.bots.get(self.channel, None)
 
     def reply(self, message):
         self.protocol.msg(self.channel, message)
@@ -65,6 +66,7 @@ class ResistanceClient(object):
         bot = self.constructor(State(), int(index), spy)
         if self.logger is None:
             self.logger = ResistanceLogger(self.protocol)
+            self.logger.client = self
             bot.log.addHandler(self.logger)
             bot.log.setLevel(logging.DEBUG)
 
@@ -189,6 +191,16 @@ class ResistanceClient(object):
         return Player(name, int(index))
 
     def message(self, sender, channel, msg):
+        if 'player' not in channel:
+            if sender == 'aigamedev':
+                return
+
+            for ch, bot in self.bots.items():
+                s = [p for p in bot.game.players if p.name == sender]
+                if len(s) > 0 and channel in ch:
+                    bot.onMessage(s, msg)
+            return
+
         cmd = msg.split(' ')[0].rstrip('?!.')
         if not hasattr(self, 'process_'+cmd):
             return
@@ -197,17 +209,13 @@ class ResistanceClient(object):
         args = [i.strip(' ') for i in msg.rstrip('.?!').split(';')]
         self.sender = sender
         self.channel = channel
-        if self.logger is not None:
-            self.logger.channel = channel
-            self.logger.game = '-'.join(channel.split('-')[:2])
-            self.logger.bot = self.getBot()
+        self.game = '-'.join(channel.split('-')[:2])
+        self.bot = self.getBot()
 
         process(*args)
 
-        if self.logger is not None:
-            self.logger.bot = None
-            self.logger.game = None
-            self.logger.channel = None
+        self.bot = None
+        self.game = None
         self.channel = None
         self.sender = None
 
@@ -237,9 +245,8 @@ class ResistanceProtocol(irc.IRCClient):
         pass
 
     def privmsg(self, user, channel, msg):
-        if 'player' in channel:
-            u = user.split('!')[0]
-            self.client.message(u, channel, msg)
+        u = user.split('!')[0]
+        self.client.message(u, channel, msg)
 
     def userLeft(self, user, channel):
         self.client.disconnect(user, channel)
