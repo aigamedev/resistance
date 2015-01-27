@@ -1,6 +1,8 @@
 import logging
 import logging.handlers
 
+import core
+
 
 class Player(object):
     """A player in the game of resistance, identified by a unique index as the
@@ -55,6 +57,9 @@ class Bot(Player):
        or warn() for instance.  The output is stored in a file in the #/logs/
        folder, named according to your bot. 
     """
+
+    __metaclass__ = core.Observable
+
 
     def onGameRevealed(self, players, spies):
         """This function will be called to list all the players, and if you're
@@ -159,7 +164,7 @@ class Bot(Player):
 
     def onGameComplete(self, win, spies):
         """Callback once the game is complete, and everything is revealed.
-        @param win          Boolean if the Resistance won.
+        @param win          Boolean true if the Resistance won.
         @param spies        List of only the spies in the game.
         """
         pass
