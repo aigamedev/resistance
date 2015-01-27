@@ -312,10 +312,8 @@ class Game(BaseGame):
         sabotaged = 0
         for s in self.state.team:
             p = self.bots[s.index]
-            result = False
-            if p.spy:
-                result = p.sabotage()
-                assert type(result) is bool, "Please return a boolean from %s.sabotage(), not %s." % (p.name, type(result))
+            result = p.sabotage() and p.spy
+            assert type(result) is bool, "Please return a boolean from %s.sabotage(), not %s." % (p.name, type(result))
             sabotaged += int(result)
         return sabotaged
 

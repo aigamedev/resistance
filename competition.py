@@ -9,6 +9,7 @@ import importlib
 import random
 import math
 import sys
+import os
 
 from player import Bot
 from game import Game
@@ -221,6 +222,10 @@ class CompetitionRunner(object):
 def getCompetitors(argv):
     competitors = []
     for request in argv:
+        if os.path.exists(request):
+            sys.path.insert(0, os.path.dirname(request))
+            request = os.path.splitext(os.path.basename(request))[0]
+
         if '.' in request:
             filename, classname = request.split('.')
         else:
@@ -243,12 +248,8 @@ def getCompetitors(argv):
 
 if __name__ == '__main__':
     if len(sys.argv) <= 2:
-        print('USAGE: competition.py 10000 file.BotName [...]')
+        print('USAGE: competition.py 10000 (filename|module.BotName) [...]')
         sys.exit(-1)
-
-    for arg in [a for a in sys.argv if '/' in a]:
-        sys.path.append(arg)
-        sys.argv.remove(arg)
 
     competitors = getCompetitors(sys.argv[2:])
     runner = CompetitionRunner(competitors, int(sys.argv[1]))
