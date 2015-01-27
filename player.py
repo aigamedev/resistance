@@ -140,6 +140,23 @@ class Bot(Player):
         """
         pass
 
+    def say(self, message):
+        """Helper function to print a message in the global game chat, visible
+        by all the other players.
+
+        @param message       String containing free-form text.
+        """
+        self.log.info(message)
+
+    def onMessage(self, source, message):
+        """Callback if another player sends a general free-form message to the
+        channel.  This is passed in as a generic string that needs to be parsed.
+
+        @param source        Player sending the message.
+        @param announcement  Arbitrary string for the message sent.
+        """
+        pass
+
     def onGameComplete(self, win, spies):
         """Callback once the game is complete, and everything is revealed.
         @param win          Boolean if the Resistance won.

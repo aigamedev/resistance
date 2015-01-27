@@ -195,7 +195,6 @@ class Invalidator(Bot):
             self.factors[config].extend(factors)
 
     def sabotage(self):
-        self.log.info("It looks like you're trying to frame me...")
         # If there's a chance of losing or winning, don't slow-play!
         if self.game.wins == 2 or self.game.losses == 2:
             self.log.debug("There's a chance of winning or losing.")
