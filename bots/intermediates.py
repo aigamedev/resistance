@@ -147,4 +147,99 @@ class Bounder(Simpleton):
         self.pessimistic = [c for c in self.pessimistic if self._validate(c, self.game.team, sabotaged, False)]
 
     def sabotage(self):
-        return True 
+        return True
+
+
+class LogicalBot(Bot):
+
+    def onGameRevealed(self, players, spies):
+        self.players = players
+        self.spies = spies
+        self.team = None
+        self.taboo = []
+
+    def select(self, players, count):
+        me = [p for p in players if p.index == self.index]
+
+        # As a spy, pick myself and others who are not spies.
+        if self.spy:
+            others = [p for p in players if p not in self.spies]
+            return me + random.sample(others, count-1)
+
+        # As resistance...
+        team = []
+        # If there was a previously selected successfull team, pick it! 
+        if self.team: # and not self._discard(self.team):
+            team = [p for p in self.team if p.index != self.index and p not in self.spies]
+        # If the previous team did not include me, reduce it by one.
+        if len(team) > count-1:
+            team = self._sample([], team, count-1)
+        # If there are not enough people still, pick another randomly.
+        if len(team) == count-1:
+            return me + team
+        # Try to put together another team that combines past winners and not spies.
+        others = [p for p in players if p != self and p not in (set(team) | self.spies)]
+        return self._sample(me + team, others, count-1-len(team))
+
+    def _sample(self, selected, candidates, count):
+        while True:
+            selection = selected + random.sample(candidates, count)
+            if self._discard(selection):
+                continue
+            return selection
+        assert False, "Problem in team selection."
+        
+    def _discard(self, team):
+        for t in self.taboo:
+            if set(t).issubset(set(team)):
+                return True
+        return False
+
+    def vote(self, team): 
+        # As a spy, vote for all missions that include one spy!
+        if self.spy:
+            return len([p for p in team if p in self.spies]) > 0
+
+        # Always approve our own missions.
+        if self.game.leader == self:
+            return True
+
+        # As resistance, always pass the fifth try.
+        if self.game.tries == 5:
+            return True
+        # If there's a known spy on the team.
+        if set(team).intersection(self.spies):
+            return False
+        # Taboo list of past suspicious teams.
+        if self._discard(team):
+            return False
+        # If I'm not on the team and it's a team of 3!
+        if len(team) == 3 and not self.index in [p.index for p in team]:
+            return False
+        # Otherwise, just approve the team and get more information. 
+        return True
+
+    def onVoteComplete(self, votes):
+        self.team = None
+    
+    def onMissionComplete(self, sabotaged):
+        if self.spy:
+            return
+
+        # Forget this failed team so we don't pick it!
+        if not sabotaged:
+            self.team = self.game.team
+            return
+
+        suspects = [p for p in self.game.team if p not in self.spies and p != self]
+        spies = [p for p in self.game.team if p in self.spies]
+        # We have more thumbs down than suspects and spies!
+        if sabotaged >= len(suspects) + len(spies):
+            for spy in [s for s in suspects if s not in self.spies]:
+                self.spies.add(spy)
+        else:
+            # Remember this specific failed teams so we can taboo search.
+            self.taboo.append([p for p in self.game.team if p != self])
+
+    def sabotage(self):
+        return self.spy

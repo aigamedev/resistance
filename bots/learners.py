@@ -153,7 +153,7 @@ class Statistician(Bot):
                     probability = 1.0 - res_Vote * p # / 1.0 
 
                 self.local_statistics[player.name].update(probability)
-        else:
+        elif False:
             # NOTE: If we had more information we could determine if a team excluded spies
             # for sure!  In this case, we could run more accurate predictions...
             for player, vote in zip(self.game.players, votes):
@@ -189,7 +189,8 @@ class Statistician(Bot):
                 else:
                     probability = 1.0 - res_Vote * t # / 1.0
 
-                self.local_statistics[member.name].update(probability)
+                # NOTE: This reduces overall estimate quality...
+                # self.local_statistics[member.name].update(probability)
 
 
     def onGameComplete(self, win, spies):
