@@ -21,17 +21,17 @@ class ResistanceLogger(logging.Handler):
         if self.client.channel is None:
             return
 
-        try:
-            msg = self.format(record)
-            ch = self.client.channel if record.levelno < logging.INFO else self.client.game
-            prefix = "COMMENT " if record.levelno < logging.INFO else "[%i] " % (self.client.bot.index)
-            length = 300 # Maximum line for an IRC message is 510, so split string.
-            for line in [msg[i:i+length] for i in range(0, len(msg), length)]:
-                self.protocol.msg(ch, '%s%s' % (prefix, line))
-        except (KeyboardInterrupt, SystemExit):
-            raise
-        except:
-            self.handleError(record)
+        # try:
+        msg = self.format(record)
+        ch = self.client.channel if record.levelno < logging.INFO else self.client.game
+        prefix = "COMMENT " if record.levelno < logging.INFO else "[%i] " % (self.client.bot.index)
+        length = 300 # Maximum line for an IRC message is 510, so split string.
+        for line in [msg[i:i+length] for i in range(0, len(msg), length)]:
+            self.protocol.msg(ch, '%s%s' % (prefix, line))
+        # except (KeyboardInterrupt, SystemExit):
+        #    raise
+        # except:
+        #    self.handleError(record)
 
 
 class ResistanceClient(object):
@@ -198,7 +198,17 @@ class ResistanceClient(object):
             for ch, bot in self.bots.items():
                 s = [p for p in bot.game.players if p.name == sender]
                 if len(s) > 0 and channel in ch:
+                    self.sender = sender
+                    self.channel = channel + '-player-%i' % p.index
+                    self.game = channel
+                    self.bot = bot
+
                     bot.onMessage(s, msg)
+
+            self.bot = None
+            self.game = None
+            self.channel = None
+            self.sender = None
             return
 
         cmd = msg.split(' ')[0].rstrip('?!.')
