@@ -290,8 +290,8 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--server', type=str, required=False, default='localhost',
-                help="Name of the IRC server to connect the specified bots to.")
+    parser.add_argument('--server', type=str, required=False, default='irc.aigamedev.com',
+                        help="Name of the IRC server to connect the specified bots to.")
     args, remaining = parser.parse_known_args()
 
     for cls in getCompetitors(remaining):
