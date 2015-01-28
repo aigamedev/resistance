@@ -10,6 +10,7 @@ Python framework for THE RESISTANCE board & card game, along with various AI bot
 Running Competitions
 --------------------
 
+If you want to quickly stress test the code and evaluate performance, you can run long competitions of thousands of games.  This is done via the ``competition.py`` script in the root of the repository.
 
 Launch a competition with bots from a relative path as follows::
     > python competition.py 1000 bots/beginners.py
@@ -27,6 +28,7 @@ The script outputs ranking tables with scores for resistance and spies separatel
 Interactive Play on IRC
 -----------------------
 
+If you want to interact with your bot for fun or testing, you can do this via Internet Relay Chat and the two scripts called ``client.py`` (to launch your bot) and ``master.py`` (to coordinate games).
 
 Running interactive text-based games requires some dependencies, in particular for networking and IRC connection::
     > pip install twisted
