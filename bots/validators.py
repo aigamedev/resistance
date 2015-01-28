@@ -51,11 +51,10 @@ class StateChecker(Bot):
             self.state.phase = 3
 
     def sabotage(self):
-        assert self.spy
         if not (self.state == self.game):
             print("EXPECTED %r ACTUAL %r" % (self.state, self.game))
         assert self.state == self.game
-        return True
+        return self.spy
 
     def onMissionComplete(self, sabotaged):
         assert len([v for v in self.game.votes if v]) > len([v for v in self.game.votes if not v])

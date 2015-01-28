@@ -10,6 +10,7 @@ Python framework for THE RESISTANCE board & card game, along with various AI bot
 Running Competitions
 --------------------
 
+
 Launch a competition with bots from a relative path as follows::
     > python competition.py 1000 bots/beginners.py
 
@@ -25,6 +26,7 @@ The script outputs ranking tables with scores for resistance and spies separatel
 
 Interactive Play on IRC
 -----------------------
+
 
 Running interactive text-based games requires some dependencies, in particular for networking and IRC connection::
     > pip install twisted
