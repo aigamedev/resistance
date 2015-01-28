@@ -86,13 +86,13 @@ class Suspicious(Bot):
         # This is used to help justify decisions in hybrid human/bot matches.
         self.factors = {k: [] for k in permutations([True, True, False, False])}
 
-    def likeliest(self, configurations):
-        ranked = sorted(configurations, key = lambda c: self.invalidations[c])
+    def likeliest(self):
+        ranked = sorted(self.invalidations.keys(), key = lambda c: self.invalidations[c])
         invalidations = self.invalidations[ranked[0]]
         return [r for r in ranked if self.invalidations[r] == invalidations]
 
     def select(self, players, count):
-        likely = self.likeliest(self.invalidations.keys())
+        likely = self.likeliest()
         config = random.choice(likely)
         return [self] + random.sample(self.getResistance(config), count-1)
 

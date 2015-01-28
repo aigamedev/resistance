@@ -1,6 +1,5 @@
-import random
-
 import intermediates
+import experts
 
 
 class Clippy(intermediates.Bounder):
@@ -35,3 +34,23 @@ class Clippy(intermediates.Bounder):
     def onMissionFailed(self, leader, team):
         pronoun = ("my" if self == leader else "that")
         self.say("It looks like nobody liked %s idea..." % pronoun)
+
+
+class Justiffy(experts.Suspicious):
+
+    def _extractPlayers(self, message):
+        def matches(p):
+            return p.name in message or str(p.index) in message
+        return [p for p in self.game.players if matches(p)]
+
+    def onMessage(self, source, message):
+        if 'about' not in message:
+            return
+
+        players = self._extractPlayers(message)
+        configs = self.likeliest()
+        if len(players) == 1:
+            p = players[0]
+            for c in configs:
+                role = "a spy" if p in self.getSpies(c) else "resistance"
+                self.say("It's possible %r is %s." % (p, role))

@@ -150,7 +150,7 @@ class Bounder(Simpleton):
         return True
 
 
-class LogicalBot(Bot):
+class Logicalton(Bot):
 
     def onGameRevealed(self, players, spies):
         self.players = players
