@@ -3,6 +3,9 @@ import experts
 
 
 class Clippy(intermediates.Bounder):
+    """This is a Microsoft Clippy-style bot for The Resistance, announcing
+    various facts as the game progresses.
+    """
 
     def onGameRevealed(self, *args):
         self.say("It looks like we're trying to play a game...")
@@ -40,17 +43,32 @@ class Justiffy(experts.Suspicious):
 
     def _extractPlayers(self, message):
         def matches(p):
-            return p.name in message or str(p.index) in message
-        return [p for p in self.game.players if matches(p)]
+            return p.name in message or ("#%i" % p.index) in message
+        return set([p for p in self.game.players if matches(p)])
 
     def onMessage(self, source, message):
-        if 'about' not in message:
+        # Only respond to queries directly addressed to this bot.
+        if not message.startswith(self.name) or 'about' not in message:
             return
 
-        players = self._extractPlayers(message)
+        players = self._extractPlayers(message) - set([self])
         configs = self.likeliest()
-        if len(players) == 1:
-            p = players[0]
-            for c in configs:
-                role = "a spy" if p in self.getSpies(c) else "resistance"
-                self.say("It's possible %r is %s." % (p, role))
+        if len(players) != 1:
+            return
+
+        # Determine how player fits into most likely configurations.
+        p = players.pop()
+        spy_score, res_score = 0, 0
+        for c in configs:
+            spy_score = int(p in self.getSpies(c))
+            res_score = int(p in self.getResistance(c))
+
+        # Express beliefs about the current estimates for the player.
+        if spy_score == res_score:
+            self.say("It's unclear at this stage what %r is playing." % (p))
+        if spy_score > res_score:
+            confidence = "arguably" if res_score > 0 else "likely"
+            self.say("I think %r is %s a spy at this stage." % (p, confidence))
+        if res_score > spy_score:
+            confidence = "arguably" if spy_score > 0 else "likely"
+            self.say("I think %r is %s resistance at this stage." % (p, confidence))

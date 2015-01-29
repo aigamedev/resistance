@@ -21,8 +21,10 @@ class Suspicious(Bot):
 
         all_spies = self.getSpies(config)
         team_spies = [s for s in self.game.team if s in all_spies]
-        if self.game.leader in all_spies and len(team_spies) != 1:
+        if self.game.leader in all_spies and len(team_spies) == 0:
             return 1.0, [(1.0, "%s, assuming a spy, did not pick a mission with spies.")] 
+        if len(team_spies) >= 2:
+            return 0.5, [(0.5, "%s, assuming a spy, picked a mission with two spies!")]
         return 0.0, []
 
     def oracle_voting(self, config, votes):
@@ -38,9 +40,12 @@ class Suspicious(Bot):
             if p in all_spies and v and not team_spies:
                 score += 1.0
                 factors.append((1.0, "%s, assuming a spy, voted for a mission that had no assumed spies." % (p.name)))
-            if p in all_spies and not v and team_spies:
+            if p in all_spies and not v and len(team_spies) == 1:
                 score += 1.0
-                factors.append((1.0, "%s, assuming a spy, did not vote a mission that had assumed spies." % (p.name)))
+                factors.append((1.0, "%s, assuming a spy, did not vote a mission that had an assumed spy." % (p.name)))
+            if p in all_spies and v and len(team_spies) > 1:
+                score += 0.5
+                factors.append((0.5, "%s, assuming a spy, voted a mission with multiple assumed spy." % (p.name)))
             if self.game.tries == 5 and p not in all_spies and not v:
                 score += 2.0
                 factors.append((2.0, "%s, assuming resistance, did not approve the final try!" % (p.name)))
