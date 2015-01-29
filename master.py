@@ -5,6 +5,7 @@ import sys
 import time
 import random
 import logging
+import datetime
 import itertools
 
 import gevent
@@ -40,11 +41,18 @@ def parseYesOrNo(text):
 
 class OnlineRound(CompetitionRound):
     
+    def __init__(self, *args):
+        super(OnlineRound, self).__init__(*args)
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H;%M;%S")
+        self.file = open("logs/game_"+timestamp+".txt", "w")
+
     def send(self, message):
         OnlineRound.client.msg(self.channel, message)
+        self.file.write("> "+message+"\n")
+        self.file.flush()
 
     def onGameRevealed(self, players, spies):
-        self.send(str(players))
+        self.send("REVEAL %r" % players)
         super(OnlineRound, self).onGameRevealed(players, spies)
 
     def onMissionAttempt(self, mission, tries, leader):
@@ -76,7 +84,9 @@ class OnlineRound(CompetitionRound):
             self.send("RESISTANCE WIN.")
         else:
             self.send("SPIES WIN...")
+
         super(OnlineRound, self).onGameComplete(win, spies)
+        self.file.close()
 
 
 class ProxyBot(Bot):
@@ -516,8 +526,13 @@ class ResistanceCompetitionHandler(CompetitionRunner):
             if len(msg.params) > 1 and msg.params[1] == 'BOT':
                 self.identities.append(msg.prefix.split('!')[0])
 
-            for g in self.games:    
-                # First check if this is a report message about sabotages in
+            for g in self.games:
+                user = msg.prefix.split('!')[0].strip('+@')
+                if g.channel == channel:
+                    g.file.write('[%s] ' % user + ' '.join(msg.params[1:])+'\n')
+                    g.file.flush()
+
+                # Check if this is a report message about sabotages in
                 # games played between humans alone or with bots.
                 if g.channel == channel and msg.params[1].upper() == 'SABOTAGES':
                     try:
