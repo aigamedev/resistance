@@ -1,3 +1,4 @@
+import time
 import threading
 import subprocess
 
@@ -31,16 +32,25 @@ class SpeechMixin(object):
         self._stop = True
         self.thread.join()
 
-    def speak(self, message):
-        subprocess.call(['/usr/bin/say', '-v', self.voice, message])
+    def speak(self, message, voice=None):
+        subprocess.call(['/usr/bin/say', '-v', voice or self.voice, message])
 
     def listen(self):
+        """Entry point for the speech-to-text thread."""
+
+        # It's ideal to start listening before the game starts, but the down-side
+        # is that object construction may not be done yet.  Here we pause shortly
+        # to let initialization finish, so all functionality (e.g. self.log) is
+        # available.
+        time.sleep(0.1)
+
         for st in self.sentences():
             self.onMessage(source=None, message=st)
 
-    def sentences():
+    def sentences(self):
         while not self._stop:
             with speech.Microphone() as source:
+                self.log.debug("Listening to microphone...")
                 audio = self.recognizer.listen(source)
                 self.log.debug("Received %i bytes of audio data." % len(audio.data))
 
@@ -50,4 +60,5 @@ class SpeechMixin(object):
                 yield sentence
 
             except LookupError:
-                self.log.debug("Could not understand.")
+                self.log.debug("Recognizer could not understand.")
+                yield ""

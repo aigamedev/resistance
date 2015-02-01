@@ -1,13 +1,15 @@
 import intermediates
 import experts
 
+from mods import speech
+
 
 class Clippy(intermediates.Bounder):
     """This is a Microsoft Clippy-style bot for The Resistance, announcing
     various facts as the game progresses.
     """
 
-    def onGameRevealed(self, *args):
+    def onGameRevealed(self, players, spies):
         self.say("It looks like we're trying to play a game...")
 
     def onMissionAttempt(self, mission, tries, leader):
@@ -37,6 +39,49 @@ class Clippy(intermediates.Bounder):
     def onMissionFailed(self, leader, team):
         pronoun = ("my" if self == leader else "that")
         self.say("It looks like nobody liked %s idea..." % pronoun)
+
+
+class Vocally(intermediates.Simpleton, speech.SpeechMixin):
+    """Example bot that uses the speech module (as a mixin class) to support
+    both text-to-speech and speech-to-text.  This requires a `say` command-line
+    application and the Python `SpeechRecognition` library respectively.
+    """
+
+    def onGameRevealed(self, players, spies):
+        self.voice = "Alex"
+
+    def say(self, message):
+        """Override for the regular say() function that outputs to IRC
+        that also pronounces everything via text-to-speech.
+        """
+        super(Vocally, self).say(message)
+        self.speak(message)
+
+    def onMessage(self, source, message):
+        # This is an utterance that was detected by voice.
+        if source == None:
+            if message == "":
+                self.speak("What do you mean?")
+                return
+
+            # Check in logs/Vocally.log to see debug output.
+            message = message.lower()
+
+            for p in ["hello", "hi there", "howdy", "hey"]:
+                if p in message:
+                    self.speak("How are you today?")
+                    return
+
+            for p in ["goodbye", "see you", "cu"]:
+                if p in message:
+                    self.speak("Great talking to you!")
+                    return
+
+            for p in ["i am", "i'm", "this is", "that's"]:
+                if p in message:                    
+                    name = message[len(p)+1:]
+                    self.speak("Hello %s!" % name)
+                    break
 
 
 class Justiffy(experts.Suspicious):

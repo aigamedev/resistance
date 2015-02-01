@@ -21,12 +21,12 @@ class Observable(type):
                 if not k.startswith('on'):
                     continue
                 def bind(name=k, function=v):
-                    def wrap(self, *args):
+                    def wrap(self, *args, **kwargs):
                         for c in reversed(self.__class__.__mro__):                            
                             if hasattr(c, '__hooks__'):
                                 for m in c.__hooks__.get(name, []):
-                                    m(self, *args)
-                        return function(self, *args)
+                                    m(self, *args, **kwargs)
+                        return function(self, *args, **kwargs)
                     return wrap
                 dct[k] = bind()
         return super(Observable, cls).__new__(cls, name, parents, dct)

@@ -21,8 +21,11 @@ class Player(object):
     """
 
     def __init__(self, name, index):
+        # Setup the two member variables first, then continue...
         self.name = name
         self.index = index
+        # This line is necessary for bots using mods as mix-in classes.
+        super(Player, self).__init__()
 
     def __repr__(self):
         return "%i-%s" % (self.index, self.name)
@@ -185,7 +188,8 @@ class Bot(Player):
         @param index    Your own index in the player list.
         @param spy      Are you supposed to play as a spy?
         """
-        Player.__init__(self, self.__class__.__name__, index)
+        super(Bot, self).__init__(self.__class__.__name__, index)
+
         self.game = game
         self.spy = spy
 
