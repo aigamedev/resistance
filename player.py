@@ -122,6 +122,10 @@ class Bot(Player):
         pass
 
     def onMissionFailed(self, leader, team):
+        """Callback once a vote did not reach majority, failing the mission.
+        @param leader       The player responsible for selection.
+        @param team         The list of players chosen for the mission.
+        """
         pass
 
     def announce(self):
