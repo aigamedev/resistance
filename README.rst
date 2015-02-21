@@ -7,6 +7,18 @@ Python framework for THE RESISTANCE board & card game, along with various AI bot
 
 ----
 
+Building Bots
+-------------
+
+To create your own bot, the best places to start are the following:
+
+  1. **Interface** — The API you must implement is located in ``player.py``, specifically a class called ``Bot``.
+  2. **Examples** — To find samples to learn from, see ``bots/beginners.py`` for some default behaviors.
+
+Basically, you must implement functions for each of the key decisions the bot has to make in the game (e.g. ``select``, ``vote`` or ``sabotage``), and then have the option of overriding callback functions to get additional information (e.g. ``onMissionComplete``).
+
+Each bot also has a ``self.game`` data-structure that stores information about the game itself.  The class this refers to is ``State`` at the top of ``game.py`` — which you should consult for details.
+
 Running Competitions
 --------------------
 
