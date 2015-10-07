@@ -6,6 +6,7 @@ from player import Bot
 
 
 class StateChecker(Bot):
+    """A simple bot used to check the game is performing as intended."""
 
     def onGameRevealed(self, players, spies):
         self.leadership = itertools.cycle(players)
