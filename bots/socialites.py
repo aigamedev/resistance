@@ -85,6 +85,8 @@ class Vocally(intermediates.Simpleton, speech.SpeechMixin):
 
 
 class Justiffy(experts.Suspicious):
+    """Plays the same as the Suspicious bot, but allows players to query the
+    bot's guess of the each player's allegiance."""
 
     def _extractPlayers(self, message):
         def matches(p):
@@ -105,8 +107,8 @@ class Justiffy(experts.Suspicious):
         p = players.pop()
         spy_score, res_score = 0, 0
         for c in configs:
-            spy_score = int(p in self.getSpies(c))
-            res_score = int(p in self.getResistance(c))
+            spy_score += int(p in self.getSpies(c))
+            res_score += int(p in self.getResistance(c))
 
         # Express beliefs about the current estimates for the player.
         if spy_score == res_score:
