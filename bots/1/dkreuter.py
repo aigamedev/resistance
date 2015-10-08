@@ -1,7 +1,7 @@
 # coding: utf-8
 """
 @name: Kreuter Bot
-@author: Daniel Kreuter
+@author: David Kreuter
 @license: GNU Public License (GPL) version 3.0
 @about: THE RESISTANCE Competition, Vienna Game/AI Conference 2012.
 """
@@ -93,12 +93,22 @@ def probsum(f):
     return ((1-a)*b/A, a*b/A, (1-b)*a/A)
 
 def probsum2(g):
+    # Example input: g = (
+    #    (g.spy_vte_mem, self._ in game.team),
+    #    (g.spy_vte_ldr, self._ == game.leader),
+    #    ...
+    # )
     return probsum(var.a.get(input, [0, 0]) for var, input in g)
 
 class GlobalStats:
 
     def __init__(self):
         # Statistics about sabotage behaviour
+        # eg. spy_sab_trn.a = {
+        #   1: # first turn
+        #      (times spy didn't sabotage, times spy sabotaged)
+        #   2: ...
+        # }
         self.spy_sab_alw = Var() # Always.
         self.spy_sab_inf = Var() # Lowest id? y/n
         self.spy_sab_sup = Var() # Highest id? y/n
@@ -108,6 +118,10 @@ class GlobalStats:
         self.spy_sab_sze = Var() # Team size? ?..?
         self.spy_sab_nsp = Var() # Numer of spies on the team? 0..?
         # Statistics about voting behaviour (Spies)
+        # eg. spy_vte_sze.a = {
+        #   3: # team size is three
+        #      (times spy didn't accept team, times spy accepted team)
+        # }
         self.spy_vte_alw = Var() # Always.
         self.spy_vte_mem = Var() # Am I team member? y/n
         self.spy_vte_ldr = Var() # Am I team leader? y/n
@@ -140,7 +154,7 @@ class SuspectTracker:
 
 class Prediction:
     track = {}
-    cos = set()
+    cos = set() # set of predictions of co-spies
     def __init__(self, game, players, _, spies=tuple()):
 
         self.globalstats = self.track.setdefault(_.name, GlobalStats())
@@ -190,6 +204,7 @@ class Prediction:
     def mission_complete(self, game, sabotaged):
         #self.sim.onMissionComplete(sabotaged)
         if not self.spy:
+            # identify obvious spies (by counting)
             self.tracker.asdf(game.team, sabotaged)
 
     def vote_complete(self, votes, p2v):
@@ -203,10 +218,13 @@ class Prediction:
         rprint("the fact that", self._, "voted", p2v[self._] and "YES" or "NO", "for", self.game.team, "changed the consistency to", self.consistency())
 
     def try5(self, approve):
+        # called after the 5th round of voting
+        # a spy has nothing to lose by approving
+        # so a scenario in which a spy doesn't approve is unlikely
+        # that was the idea at least
         if not approve and not self.spy:
-            rprint("AHAHAHAH") # sadly it's not a 100% proof
+            rprint("AHAHAHAH")
             self.sense /= 4
-            
 
     def spy_sab(self, spies, chosen_spies, game):
         g = self.globalstats
@@ -245,6 +263,9 @@ class Prediction:
         )
 
     def upload(self, gamelog, spies):
+        # Add the decisions other players made to the statistical profile
+        # We do this at the end of the round so we can attribute behavior
+        # to the correct team using our now complete information.
         for game, mode, arg in gamelog:
             chosen_spies = spies & game.team
             if mode == Log.Vote:
@@ -321,7 +342,9 @@ class KreuterBot(Bot):
     def opt(self, tracker, team, sabotaged):
         if not tracker: return 0
         if self in tracker.asdf(team, sabotaged, simulate=True):
+            # Move is incriminating us
             return -1
+        # Doubt remains
         return 0
 
     #### #### #### #### #### #### GAME PHASES #### #### #### #### #### ####
@@ -329,9 +352,17 @@ class KreuterBot(Bot):
     # hyp, select, vote, accept, sabotage, success
 
     def dff_hyp(self, func, *args):
+        # calls func(consistency_of_hyp, hyp, *args)
+        #
+        # func is either
+        #   gen_select (which is gen_vote over all possible teams)
+        #   gen_vote
+
         assert self.hyps
 
         if len(self.hyps) == 1:
+            # skip consistency scoring when only one situation is possible
+            # equivalent to else-part
             func(1.0, self.hyps[0], *args)
         else:
             for prob, hyp in weighted(consistency, self.hyps):
@@ -346,6 +377,8 @@ class KreuterBot(Bot):
         m = majority(len(self.game.players))
         rprint("team", team)
         rprint("vote-dtr", dtr)
+        # if we're a spy we consider vote=0 and vote=1
+        # else loop only runs for vote=1
         for vote in o(1, self.spy or self.game.tries<5):
             acceptance = 1-sum(dtr[:m-vote])
             # Vote successful
@@ -355,17 +388,40 @@ class KreuterBot(Bot):
             pass
 
     def gen_sabotage(self, prob, hyp, team, vote):
+        # add a value to self.stats[(team, did_vote_for_team, did_sabotage)]
+
         dtr = m_out_of_n(pred.likeliness_to_sabotage(team) for pred in hyp)
         m = 1 # Game.sabotageRequired(self.game)
         rprint(" sabotage-dtr", dtr)
         if self.spy:
+            # nhyp = [
+            #   -number of players which know we're a spy when mission finishes with 0 sabotage cards,
+            #   -number of players which know we're a spy when mission finishes with 1 sabotage card,
+            #   ...
+            # ]
             nhyp = [sum(self.opt(pred.tracker, team, i) for pred in hyp) for i in range(len(dtr))]
             rprint(" nhyp        ", nhyp)
         
+        # if we're a spy in the team we consider sabotage=0 and sabotage=1
+        # else loop only runs for saboage=0
         for sabotage in o(0, self.spy and self in team):
             ms = m-sabotage
             success = sum(dtr[:ms])
             if self.spy:
+                # when sabotage = 0
+                #   sosco_v = [
+                #     score in 0 card situation * likeliness of 0 card situation,
+                #     ...
+                #     score in n card situation * likeliness of n card situation
+                #   ]
+                #
+                # when sabotage = 1
+                #   sosco_v = [
+                #     score in 1 card situation * likeliness of 0 card situation,
+                #     ...
+                #     score in n card situation * likeliness of (n-1) card situation
+                #   ]
+                #
                 sosco_v = [s*p for s, p in zip(nhyp[sabotage:], dtr[:len(dtr)-sabotage])]
                 sosco = sum(sosco_v[ms:])
                 score = 1-2*success
@@ -373,7 +429,7 @@ class KreuterBot(Bot):
                 sosco = 0
                 score = 2*success-1
             key = (team, vote, sabotage)
-            fadd = score + sosco*0.5
+            fadd = score + sosco*0.5 # 0.5 = random fudge factor x_x
             fadd *= prob
             self.stats[key] = self.stats.get(key, 0) + fadd
             if self.spy:
@@ -407,7 +463,8 @@ class KreuterBot(Bot):
         self.tracker = SuspectTracker(self)
         self.gamelog = []
 
-        count = [0]
+        count = [0] # workaround to imitate python3 nonlocal. wait, this IS python3 <_<
+                    # total count of predictors
         def P(*a):
             count[0] += 1
             return (a[0] == self and SelfPrediction or Prediction)(self.game, players, *a)
@@ -415,12 +472,19 @@ class KreuterBot(Bot):
         if self.spy:
             for p in players:
                 rprint(p==self and "Z" or p in spies and "S" or "R", p.name)
+            
+            # Create one predictor per player
             self.all_pred = [
                 P(p, spies if p in spies else tuple())
                 for p in players
             ]
+            
+            # Set of predictors of spies
             spo = {zz for zz in self.all_pred if zz.spy}
+            
+            # Spies have access to the above set
             for zz in spo: zz.cos = spo
+            
             self.hyps = [self.all_pred]
         else:
             for p in players:
@@ -429,22 +493,26 @@ class KreuterBot(Bot):
             # Five players 17 instances of Prediction
             # Ten players 514 instances of Prediction
 
-            d = map(P, players)
-            f = [None] * len(players)
+            d = map(P, players) # shared predictors for resistance
+            f = [None] * len(players) # f[x] = is x a spy in the predictor set being built
 
             self.all_pred = d[:]
             self.hyps = []
 
             def sub(p, r, s):
                 if not r+s:
-                    n = list(compress(players, f))
-                    z = {P(p, n) for v, p in zip(f, players) if v}
-                    for zz in z: zz.cos = z
+                    n = list(compress(players, f)) # only spies
+                    z = {P(p, n) for v, p in zip(f, players) if v} # extra predictors only for spies
+                    for zz in z: zz.cos = z # who know their co-spies
                     self.all_pred.extend(z)
-                    self.hyps.append(list(z|{t for v, t in zip(f, d) if not v}))
+                    self.hyps.append(list(
+                        z | # our spy predictors
+                        {t for v, t in zip(f, d) if not v} # and the shared resistance predictors
+                    ))
                     #rprint("-*-", n, z, self.hyps[-1])
                     return 
 
+                # self.spy is always False here
                 w = int(self.spy) if players[p] == self else -1 # -.-
                 if r and w!=1: f[p]=0; sub(p+1, r-1, s)
                 if s and w!=0: f[p]=1; sub(p+1, r, s-1)
