@@ -165,20 +165,20 @@ class Logicalton(Bot):
         if self.spy:
             others = [p for p in players if p not in self.spies]
             return [self] + random.sample(others, count-1)
-        else:
-            team = []
-            # If there was a previously selected successfull team, pick it! 
-            if self.team: # and not self._discard(self.team):
-                team = [p for p in self.team if p.index != self.index and p not in self.spies]
-            # If the previous team did not include me, reduce it by one.
-            if len(team) > count-1:
-                team = self._sample([], team, count-1)
-            # If there are not enough people still, pick another randomly.
-            if len(team) == count-1:
-                return [self] + team
-            # Try to put together another team that combines past winners and not spies.
-            others = [p for p in players if p != self and p not in (set(team) | self.spies)]
-            return self._sample([self] + team, others, count-1-len(team))
+
+        team = []
+        # If there was a previously selected successful team, pick it! 
+        if self.team: # and not self._discard(self.team):
+            team = [p for p in self.team if p.index != self.index and p not in self.spies]
+        # If the previous team did not include me, reduce it by one.
+        if len(team) > count-1:
+            team = self._sample([], team, count-1)
+        # If there are not enough people still, pick another randomly.
+        if len(team) == count-1:
+            return [self] + team
+        # Try to put together another team that combines past winners and not spies.
+        others = [p for p in players if p != self and p not in (set(team) | self.spies)]
+        return self._sample([self] + team, others, count-1-len(team))
 
     def _sample(self, selected, candidates, count):
         while True:
@@ -186,11 +186,13 @@ class Logicalton(Bot):
             if self._discard(selection):
                 continue
             return selection
+        # The selected team has been discarded, meaning there's a problem with
+        # the selected candidates.
         assert False, "Problem in team selection."
         
     def _discard(self, team):
+        # Has a subset of the proposed team failed a mission before?
         for t in self.taboo:
-            # Check if the team is a contains a team we that's failed a mission
             if set(t).issubset(set(team)):
                 return True
         return False
@@ -223,23 +225,22 @@ class Logicalton(Bot):
     def onMissionComplete(self, sabotaged):
         if self.spy:
             return
+        # Keep track of the team if it's successful
+        if not sabotaged:
+            self.team = self.game.team
+            return
+        
+        # Divide the team into known spies and suspects
+        suspects = [p for p in self.game.team if p not in self.spies and p != self]
+        spies = [p for p in self.game.team if p in self.spies]
+
+        if sabotaged >= len(suspects) + len(spies):
+            # We have more thumbs down than suspects and spies!
+            for spy in [s for s in suspects if s not in self.spies]:
+                self.spies.add(spy)
         else:
-            # Keep track of the team if it's successful
-            if not sabotaged:
-                self.team = self.game.team
-                return
-            else:
-                # Divide the team into known spies and suspects
-                suspects = [p for p in self.game.team if p not in self.spies and p != self]
-                spies = [p for p in self.game.team if p in self.spies]
-    
-                if sabotaged >= len(suspects) + len(spies):
-                    # We have more thumbs down than suspects and spies!
-                    for spy in [s for s in suspects if s not in self.spies]:
-                        self.spies.add(spy)
-                else:
-                    # Remember this specific failed teams so we can taboo search.
-                    self.taboo.append([p for p in self.game.team if p != self])
+            # Remember this specific failed teams so we can taboo search.
+            self.taboo.append([p for p in self.game.team if p != self])
 
     def sabotage(self):
         return self.spy
